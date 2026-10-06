@@ -36,11 +36,11 @@ const log = (...a) => console.log(...a);
 
 const HILFE = `galerie: Fotogalerien der Event-Galerie
 
-  galerie neu <drive-link-oder-id> --titel "..." [--marke agentur|ambition|blueprint] [--projekt fotos-...] [--ablauf <ISO>]
+  galerie neu <drive-link-oder-id> --titel "..." [--untertitel "Ort · Datum"] [--marke agentur|ambition|blueprint] [--projekt fotos-...] [--ablauf <ISO>]
       Ordner prüfen (liegt er nicht in der Geteilten Ablage, wird er dorthin kopiert), Code erzeugen,
       bauen lassen, Lauf beobachten, Bericht lesen, live abnehmen. Gibt Link, Code, QR und Text aus.
       Ohne --ablauf läuft die Galerie nie ab. Standardmarke: agentur.
-  galerie neu-bauen <projekt> [--titel "..."]   gleicher Code, gleiche Adresse (z. B. neue Fotos)
+  galerie neu-bauen <projekt> [--titel "..."] [--untertitel "..."]   gleicher Code, gleiche Adresse (z. B. neue Fotos)
   galerie liste                                  alle Galerien aus dem Register, mit Live-Stand
   galerie status <projekt>                       Register und Live-Stand einer Galerie
   galerie offline <projekt>                      Platzhalter statt Galerie, Adresse bleibt
@@ -125,6 +125,7 @@ async function bauenUndAbnehmen({ e, gh, eintrag, code, ablauf, zeitlimitMs }) {
     ablauf: ablauf || "nie",
     code_hash_enc: enc,
     projekt: eintrag.projekt,
+    ...(eintrag.untertitel ? { untertitel: eintrag.untertitel } : {}),
   };
   log("Bau starten");
   const laufId = await gh.starte("bauen.yml", inputs, `bauen ${eintrag.id}`);
@@ -180,6 +181,7 @@ async function befehlNeu(e, gh, pos, w) {
   if (!pos[0]) throw new WerkzeugFehler("Drive-Link oder Ordner-ID fehlt", { hinweis: "galerie neu <link> --titel \"...\"" });
   const titel = (w.titel || "").trim();
   if (!titel || titel.length > 200 || /[\u0000-\u001f\u007f]/.test(titel)) throw new WerkzeugFehler("--titel fehlt oder ist ungültig");
+  if ((w.untertitel || "").length > 120 || /[\u0000-\u001f\u007f]/.test(w.untertitel || "")) throw new WerkzeugFehler("--untertitel ist zu lang (höchstens 120 Zeichen) oder ungültig");
   const marke = w.marke || "agentur";
   const marken = await markenListe();
   if (!marken[marke]) throw new WerkzeugFehler(`Marke ${marke} gibt es nicht (${Object.keys(marken).join(", ")})`);
@@ -227,7 +229,7 @@ async function befehlNeu(e, gh, pos, w) {
   if (!new RegExp(`^[${CODE_ALPHABET}]{8}$`).test(code)) throw new WerkzeugFehler("Code-Erzeugung fehlerhaft");
   const link = gaesteLink(projekt, code);
   const eintrag = await eintragSetzen(e, {
-    id, titel, marke, projekt, ordner, quelle: quelle === ordner ? undefined : quelle,
+    id, titel, untertitel: (w.untertitel || "").trim() || undefined, marke, projekt, ordner, quelle: quelle === ordner ? undefined : quelle,
     erstellt: new Date().toISOString(), link, code, ablauf: w.ablauf || null, status: "startet",
   });
   log(`Galerie ${projekt}, ID ${id}`);
@@ -249,7 +251,8 @@ async function befehlNeuBauen(e, gh, pos, w) {
   if (!g.code || !g.ordner || !g.id) throw new WerkzeugFehler("Im Register fehlen Code, Ordner oder ID");
   await vorbedingungen(e, { schluessel: true, gh });
   const titel = (w.titel || g.titel).trim();
-  const eintrag = await eintragSetzen(e, { projekt: g.projekt, titel });
+  const untertitel = w.untertitel !== undefined ? w.untertitel.trim() || undefined : g.untertitel;
+  const eintrag = await eintragSetzen(e, { projekt: g.projekt, titel, untertitel });
   const r = await bauenUndAbnehmen({ e, gh, eintrag, code: g.code, ablauf: g.ablauf, zeitlimitMs: w.zeitlimitMs });
   const dateien = await schreibeAusgabe(join(e.downloads, `Galerie-${slug(titel)}`), { titel, link: g.link, code: g.code });
   await eintragSetzen(e, { projekt: g.projekt, status: "online", anzahl: r.bericht.anzahl, bytes: r.bericht.bytesOriginale, gps: r.bericht.gpsFunde.length });
@@ -356,6 +359,7 @@ export async function haupt(argv = process.argv.slice(2), env = process.env) {
       allowPositionals: true,
       options: {
         titel: { type: "string" },
+        untertitel: { type: "string" },
         marke: { type: "string" },
         projekt: { type: "string" },
         ablauf: { type: "string" },

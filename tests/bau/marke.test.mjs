@@ -110,9 +110,11 @@ test("Hintergrund-Varianten: kleines WebP und JPEG gleicher Größe", async () =
   if (m.hintergrund) {
     const { readdir } = await import("node:fs/promises");
     const css = markeCss(m, { dateien: await readdir(new URL("../../marken/ambition/", import.meta.url)) });
-    assert.match(css, /--hintergrund-kopf: url\("\/assets\/marke\/hintergrund-kopf-2560\.webp"\);/);
-    assert.match(css, /--hintergrund-kopf-klein: url\("\/assets\/marke\/hintergrund-kopf-900\.webp"\);/);
-    assert.match(css, /--hintergrund-kopf-jpg: url\("\/assets\/marke\/hintergrund-kopf-2560\.jpg"\);/);
-    assert.match(css, /--hintergrund-muster-jpg: url\("\/assets\/marke\/hintergrund-muster-2560\.jpg"\);/);
+    // Gerenderte Prägung (bau/praegung/praegung.mjs): breit fürs Querformat, hoch fürs Handy
+    assert.match(css, /--hintergrund-kopf: url\("\/assets\/marke\/hintergrund-kopf-breit-3840\.webp"\);/);
+    assert.match(css, /--hintergrund-kopf-klein: url\("\/assets\/marke\/hintergrund-kopf-breit-1920\.webp"\);/);
+    assert.match(css, /--hintergrund-kopf-jpg: url\("\/assets\/marke\/hintergrund-kopf-breit-3840\.jpg"\);/);
+    assert.match(css, /--hintergrund-hoch: url\("\/assets\/marke\/hintergrund-kopf-hoch-1290\.webp"\);/);
+    assert.match(css, /--hintergrund-hoch-klein: url\("\/assets\/marke\/hintergrund-kopf-hoch-860\.webp"\);/);
   }
 });

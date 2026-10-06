@@ -66,7 +66,8 @@ export async function ladeMarke(markenDir, id) {
 // Öffentliche Angaben für die Oberfläche (keine Geheimnisse).
 export function markeOeffentlich(marke) {
   const { id, name, eventSeite, domain, impressum, datenschutz, hintergrund } = marke;
-  return { id, name, eventSeite, domain, impressum, datenschutz, hintergrund };
+  const gruss = typeof marke.gruss === "string" && marke.gruss.trim() ? marke.gruss.trim().slice(0, 140) : undefined;
+  return { id, name, eventSeite, domain, impressum, datenschutz, hintergrund, ...(gruss ? { gruss } : {}) };
 }
 
 export async function schreibeMarke(ziel, { marke, ordner }) {

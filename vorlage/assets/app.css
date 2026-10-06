@@ -253,6 +253,15 @@ button {
   }
 }
 
+/* Handy hochkant: eigene Hochformat-Prägung (marke.json "hintergrund.hoch"), Medaillon oben rechts,
+   darunter ruhige Fläche für den Titel. Ohne "hoch" bleibt das breite Bild. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .buehnenbild {
+    background-image: var(--hintergrund-hoch, var(--hintergrund-kopf, none));
+    background-position: 100% 0;
+  }
+}
+
 /* Die Prägung hat helle Kanten. Hinter der Schrift dunkelt ein Schleier in Grundfarbe sie ab,
    rechts bleibt das Medaillon frei (Kontrast gemessen in oberflaeche.spec.mjs, Pixel für Pixel). */
 html.mit-kopfbild .buehnenbild::after {
@@ -623,6 +632,17 @@ body[data-zustand="z-meldung"] .app-hinweis {
     gap: 14px;
     padding-bottom: 44px;
   }
+}
+
+.galerie-gruss {
+  margin: 0.35em 0 0.2em;
+  font-family: var(--schrift-titel);
+  font-weight: var(--titel-gewicht, 400);
+  font-size: clamp(1.25rem, 1rem + 1.2vw, 1.75rem);
+  line-height: 1.3;
+  color: var(--f-text);
+  opacity: 0.92;
+  max-width: 34ch;
 }
 
 .galerie-oberzeile {

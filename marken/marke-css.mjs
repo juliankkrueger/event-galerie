@@ -24,7 +24,7 @@ const TITEL = {
 // Optionaler Block "hintergrund" in marke.json: Bilddateien aus marken/<id>/, die der Bau nach
 // /assets/marke/ kopiert (zusammen mit allen anderen Bilddateien des Markenordners, damit
 // Varianten mit anderer Endung oder Größe mitkommen).
-export const HINTERGRUND_SCHLUESSEL = ['kopf', 'muster'];
+export const HINTERGRUND_SCHLUESSEL = ['kopf', 'hoch', 'muster'];
 
 // Varianten einer Hintergrunddatei im Markenordner: gleicher Stamm, Größenzusatz -<px>, andere
 // Endung. Aus "hintergrund-kopf-2560.webp" und den Dateien hintergrund-kopf-{900,1600,2560}.{webp,jpg}

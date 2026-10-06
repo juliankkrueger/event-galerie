@@ -37,6 +37,11 @@ on:
         description: pbkdf2-Hash des Zugangscodes, verschlüsselt (v1.<iv>.<ct>.<tag>)
         required: true
         type: string
+      untertitel:
+        description: Zeile über dem Titel, z. B. Ort und Datum (optional)
+        required: false
+        default: ""
+        type: string
       projekt:
         description: Pages-Projekt dieser Galerie (fotos-...); leer = Projekt der Marke
         required: false
@@ -67,6 +72,7 @@ jobs:
       GALERIE_ID: ${{ inputs.galerie_id }}
       MARKE: ${{ inputs.marke }}
       TITEL: ${{ inputs.titel }}
+      UNTERTITEL: ${{ inputs.untertitel }}
       ABLAUF: ${{ inputs.ablauf }}
       PROJEKT: ${{ inputs.projekt }}
       # code_hash_enc und ordner_id stehen bewusst NICHT hier: GitHub zeigt den env-Block im
@@ -107,6 +113,7 @@ jobs:
             [[ "$PROJEKT" =~ $re_projekt ]] || { echo "::error::projekt ungültig"; fehler=1; }
           fi
           if [[ ${#TITEL} -lt 1 || ${#TITEL} -gt 200 || "$TITEL" =~ [[:cntrl:]] ]]; then echo "::error::titel ungültig"; fehler=1; fi
+          if [[ ${#UNTERTITEL} -gt 120 || "$UNTERTITEL" =~ [[:cntrl:]] ]]; then echo "::error::untertitel ungültig"; fehler=1; fi
           [[ $fehler -eq 0 ]] || exit 1
           # Ordner-ID ist kein Geheimnis, gehört aber nicht ins öffentliche Log.
           echo "::add-mask::$ordner"
@@ -180,6 +187,7 @@ jobs:
             --quelle "drive:$ORDNER_ID" \
             --marke "$MARKE" \
             --titel "$TITEL" \
+            --untertitel "$UNTERTITEL" \
             --galerie "$GALERIE_ID" \
             --ablauf "$ABLAUF" \
             --code-hash "$(cat "$RUNNER_TEMP/code-hash")" \

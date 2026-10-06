@@ -60,6 +60,8 @@ export function pruefeArgumente(werte, jetzt = Date.now()) {
   if (!MUSTER.galerie.test(werte.galerie || "")) fehler.push("--galerie ungültig (A-Z a-z 0-9 _ -, höchstens 64)");
   const titel = (werte.titel || "").trim();
   if (!titel || titel.length > 200 || /[\u0000-\u001f\u007f]/.test(titel)) fehler.push("--titel fehlt oder ungültig");
+  const untertitel = (werte.untertitel || "").trim();
+  if (untertitel.length > 120 || /[\u0000-\u001f\u007f]/.test(untertitel)) fehler.push("--untertitel ungültig (höchstens 120 Zeichen)");
   // Ohne Ablauf (fehlt, leer oder "nie") bleibt die Galerie online, bis sie jemand abschaltet.
   const ablaufText = (werte.ablauf ?? "").trim();
   const ablauf = ablaufText === "" || ablaufText === "nie" ? null : ablaufText;
@@ -77,6 +79,7 @@ export function pruefeArgumente(werte, jetzt = Date.now()) {
     marke: werte.marke,
     galerie: werte.galerie,
     titel,
+    untertitel,
     ablauf,
     codeHash: werte["code-hash"],
     aus: resolve(werte.aus),
@@ -236,6 +239,7 @@ export async function baue(a) {
       galerie: a.galerie,
       marke: a.marke,
       titel: a.titel,
+      ...(a.untertitel ? { untertitel: a.untertitel } : {}),
       // Ohne Ablauf fehlt der Schlüssel ganz (die Oberfläche zeigt dann kein „online bis“).
       ...(a.ablauf ? { ablauf: a.ablauf } : {}),
       erstellt: new Date().toISOString(),
@@ -279,6 +283,7 @@ async function haupt() {
         quelle: { type: "string" },
         marke: { type: "string" },
         titel: { type: "string" },
+        untertitel: { type: "string" },
         galerie: { type: "string" },
         ablauf: { type: "string" },
         "code-hash": { type: "string" },

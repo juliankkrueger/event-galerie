@@ -7,4 +7,5 @@
             "knopfVerlauf": ["#F4CFC0", "#C69C7B", "#B9836A"], "titelVerlauf": ["#F4CFC0", "#C69C7B", "#B9836A"] },
   "logo": "logo.png", "favicon": { "ico": "favicon.ico", "png32": "favicon-32.png", "png192": "favicon-192.png", "apple": "apple-touch-icon.png" },
   "impressum": "https://agenturkrueger-digital.de/impressum/", "datenschutz": "https://agenturkrueger-digital.de/datenschutz/",
-  "hintergrund": { "kopf": "hintergrund-kopf-2560.webp", "muster": "hintergrund-muster-2560.webp" } }
+  "gruss": "Danke, dass du dabei warst.",
+  "hintergrund": { "kopf": "hintergrund-kopf-breit-3840.webp", "hoch": "hintergrund-kopf-hoch-1290.webp" } }

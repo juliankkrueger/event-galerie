@@ -84,7 +84,7 @@ const inputsVon = (text) => {
 test("Inputs: höchstens 10 je Workflow, projekt optional mit festem Muster, ablauf optional", async () => {
   const bauen = await lies("bauen.yml");
   const offline = await lies("offline.yml");
-  assert.deepEqual(inputsVon(bauen), ["galerie_id", "marke", "titel", "ordner_id", "ablauf", "code_hash_enc", "projekt"]);
+  assert.deepEqual(inputsVon(bauen), ["galerie_id", "marke", "titel", "ordner_id", "ablauf", "code_hash_enc", "untertitel", "projekt"]);
   assert.deepEqual(inputsVon(offline), ["galerie_id", "marke", "projekt", "aktion"]);
   for (const [n, t] of [["bauen.yml", bauen], ["offline.yml", offline]]) {
     assert.ok(inputsVon(t).length <= 10, `${n}: GitHub erlaubt höchstens 10 Inputs`);

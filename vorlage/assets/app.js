@@ -55,6 +55,13 @@ function farbschemaSetzen() {
 // Links aus /assets/marke.json (schreibt der Bau aus marken/<id>/marke.json). Ohne Datei bleiben die
 // Links aus index.html stehen und die Event-Seite wird aus der Domain abgeleitet (fotos.x.de -> x.de).
 let eventSeite = eventSeiteAusHost(location.hostname);
+let markenGruss = '';
+function setzeGruss() {
+  const el = $('galerie-gruss');
+  if (!el) return;
+  el.textContent = markenGruss;
+  el.hidden = !markenGruss;
+}
 
 async function markeLaden() {
   try {
@@ -66,6 +73,10 @@ async function markeLaden() {
     if (impressum) $('link-impressum').href = impressum;
     if (datenschutz) $('link-datenschutz').href = datenschutz;
     eventSeite = httpsAdresse(m.eventSeite) || eventSeite;
+    if (typeof m.gruss === 'string' && m.gruss.trim()) {
+      markenGruss = m.gruss.trim().slice(0, 140);
+      setzeGruss();
+    }
   } catch {
     // Fuß und Event-Link bleiben wie in index.html
   } finally {
@@ -472,6 +483,9 @@ function galerieAufbauen(manifest) {
   }
 
   $('galerie-titel').textContent = manifest.titel || 'Fotogalerie';
+  const untertitel = typeof manifest.untertitel === 'string' ? manifest.untertitel.trim().slice(0, 120) : '';
+  $('galerie-oberzeile').textContent = untertitel || 'Fotogalerie';
+  setzeGruss();
   $('galerie-tipp').textContent = zustand.touch
     ? 'Tippe auf den Kreis, um Fotos auszuwählen.'
     : 'Klick auf den Kreis oben rechts, um ein Foto auszuwählen.';
