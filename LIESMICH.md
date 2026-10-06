@@ -1,6 +1,6 @@
 # Event-Galerie
 
-Fotogalerien zu den Events der Agentur Krüger (AMBITION Circle, Blueprint Summit), als Ersatz für Pixieset. Gäste bekommen Link oder Code, sehen die Fotos im Raster, laden einzelne oder viele auf einmal: am Handy direkt in die Fotos-App, am Rechner als ZIP mit Originalen.
+Fotogalerien zu den Events der Agentur Krüger (AMBITION Circle, Blueprint Summit) und zu Kunden-Events, als Ersatz für Pixieset. Jede Galerie hat ihre eigene Adresse `https://<projekt>.pages.dev`, beliebig viele sind gleichzeitig online, keine läuft von selbst ab. Gäste bekommen Link oder Code, sehen die Fotos im Raster, laden einzelne oder viele auf einmal: am Handy direkt in die Fotos-App, am Rechner als ZIP mit Originalen.
 
 Verbindlich für alle Bausteine ist **[VERTRAG.md](VERTRAG.md)**. Wer davon abweicht, ändert zuerst den Vertrag.
 
@@ -8,7 +8,16 @@ Verbindlich für alle Bausteine ist **[VERTRAG.md](VERTRAG.md)**. Wer davon abwe
 |---|---|
 | [einrichtung/ANLEITUNG-EINRICHTUNG.md](einrichtung/ANLEITUNG-EINRICHTUNG.md) | Inhaber des Repos, einmalige Einrichtung |
 | [einrichtung/NEUES-EVENT.md](einrichtung/NEUES-EVENT.md) | Team, nach jedem Event |
+| [einrichtung/NEUE-MARKE.md](einrichtung/NEUE-MARKE.md) | Kunden-Marke in 10 Minuten |
 | [einrichtung/DATENSCHUTZ-BAUSTEIN.md](einrichtung/DATENSCHUTZ-BAUSTEIN.md) | Geschäftsführung, Entwurf zur Prüfung |
+
+## Neue Galerie (Hauptweg)
+
+```bash
+galerie neu "<drive-link>" --titel "<Titel>" [--marke agentur|ambition|blueprint]
+```
+
+Ein Befehl: Ordner prüfen (und bei Bedarf in die Geteilte Ablage kopieren), Code erzeugen, Bau auf GitHub starten und beobachten, verschlüsselten Bericht lesen, die Galerie live abnehmen, Link, Code, QR-Code und Gäste-Text ausgeben. Einzelheiten in [NEUES-EVENT.md](einrichtung/NEUES-EVENT.md), Vertrag im Abschnitt „Werkzeug galerie“. Das Krüger OS bleibt als Zweitweg für die beiden eigenen Marken.
 
 ## Architektur
 
@@ -18,22 +27,24 @@ Verbindlich für alle Bausteine ist **[VERTRAG.md](VERTRAG.md)**. Wer davon abwe
   └──────────────────────▶  ▲
                             │ nur lesen: Dienstkonto event-galerie, Rolle Betrachter,
                             │ angemeldet per Workload Identity Federation (kein Schlüssel)
- Krüger OS (Login)          │
-  Event > Fotogalerie       │
+ Werkzeug galerie (Mac)     │
+  gh, gcloud, Schlüsselbund │
+ oder Krüger OS (Login)     │
   Bauen / Offline ──API──▶ GitHub Actions  juliankkrueger/event-galerie (öffentlich)
-  (Code bleibt im OS, an    bauen.yml: Hash entschlüsseln, Drive lesen, md5 prüfen,
-   GitHub nur der Hash,     verkleinern, Metadaten entfernen, dist/ bauen, deployen,
-   AES-verschlüsselt)       Bericht verschlüsselt zurück
-                            offline.yml: Platzhalter deployen, alte Fassungen löschen
+  (Code bleibt lokal bzw.   bauen.yml: Hash entschlüsseln, Drive lesen, md5 prüfen,
+   im OS, an GitHub nur     verkleinern, Metadaten entfernen, dist/ bauen, deployen,
+   der Hash, verschlüsselt) Bericht verschlüsselt zurück
+                            offline.yml: Platzhalter deployen, alte Fassungen löschen,
+                            auf Wunsch das ganze Projekt löschen
                             │
                             │ wrangler pages deploy (Token nur "Pages Edit")
                             ▼
-                         Cloudflare Pages, je Marke ein Projekt
-                          fotos.ambition-circle.de   fotos.blueprint-summit.de
+                         Cloudflare Pages, je Galerie ein Projekt (OS: je Marke eins)
+                          https://fotos-<titel>-<4 Zeichen>.pages.dev
                           statisch: /index.html /assets/* /b/<tok>/{r,g,h,o}/...
                           Function: /api/status /api/zugang /api/manifest
                             ▲
- Gäste ─────────────────────┘  Link https://fotos.<eventdomain>/#c=<CODE>
+ Gäste ─────────────────────┘  Link https://<projekt>.pages.dev/#c=<CODE>
                                (keine Verbindung zu Google, OS oder Dritten)
 ```
 
@@ -41,10 +52,11 @@ Verbindlich für alle Bausteine ist **[VERTRAG.md](VERTRAG.md)**. Wer davon abwe
 
 | Ordner | Inhalt |
 |---|---|
-| `bau/` | Baukette `bau.mjs` (Node 22), `code-hash.mjs` (Code und Hash erzeugen), `geheim.mjs` (Ver- und Entschlüsseln zwischen OS und GitHub), `offline.mjs` |
+| `bau/` | Baukette `bau.mjs` (Node 22), `code-hash.mjs` (Code und Hash erzeugen), `geheim.mjs` (Ver- und Entschlüsseln zwischen OS und GitHub), `offline.mjs`, `pages.mjs` (Cloudflare-Verwaltung der Workflows) |
+| `werkzeug/` | Kommandozeile `galerie` (Hauptweg), eigene `package.json` nur mit `qrcode` |
 | `functions/` | Pages Function für `/api/*`, `_daten.js` erzeugt der Bau je Galerie |
 | `vorlage/` | Oberfläche der Galerie: HTML, CSS, JS, Schriften, Service Worker |
-| `marken/<id>/` | `marke.json`, Logo, Favicons je Marke |
+| `marken/<id>/` | `marke.json`, Logo, Favicons je Marke; `marken/schriften/` Schriften einzelner Marken |
 | `.github/workflows/` | `bauen.yml`, `offline.yml` |
 | `einrichtung/` | Einrichtungsskripte und Anleitungen |
 | `tests/` | Tests der Baukette und der Oberfläche |
@@ -92,7 +104,8 @@ node bau/geheim.mjs bericht --galerie test-1 --ein /tmp/eg-test/bericht.json --a
 Node 22 (wrangler 4.127 verlangt es; wrangler liegt fest in `devDependencies`, aufrufen mit `npx --no-install wrangler`).
 
 ```bash
-npm test                                   # Baukette, Function, Verschlüsselung, Workflows, Marken (node --test)
+(cd werkzeug && npm ci)                    # einmal, für die Werkzeug-Tests (qrcode)
+npm test                                   # Baukette, Function, Verschlüsselung, Workflows, Marken, Werkzeug (node --test)
 cd tests/oberflaeche && npm ci && npm test # Oberfläche gegen den Mock (Playwright)
 npm run integration                        # (in tests/oberflaeche) echte Baukette + Function + Browser
 ```
@@ -139,7 +152,7 @@ Ein Projekt ohne Rechnungskonto kann gar nichts Kostenpflichtiges starten. Bei C
 | Plattenplatz im GitHub-Läufer | ca. 14 GB frei, nach Aufräumen vorinstallierter Werkzeuge mehr | Originale plus Fassungen müssen hineinpassen |
 | Actions-Laufzeit | unbegrenzte Minuten (öffentliches Repo), je Lauf höchstens 6 h, `bauen.yml` bricht nach 180 min ab | Dauer je Bau hängt an der Fotomenge |
 | ZIP am Rechner | höchstens 200 Bilder je ZIP, Teil-ZIPs bis ca. 2 GB | Steht im Zähler |
-| Online je Marke | eine Galerie gleichzeitig | Das OS erzwingt es |
+| Galerien gleichzeitig | beliebig viele (je Galerie ein Pages-Projekt); auf dem OS-Weg eine je Marke | Cloudflare erlaubt **100 Pages-Projekte je Konto**, die Grenze wird laut Doku nicht angehoben. Die Galerien teilen sich das Konto mit allen anderen Pages-Projekten der Agentur (gemessen 06.10.2026: 62 belegt, also Platz für rund 38 Galerien). Nicht mehr gebrauchte Galerien mit `galerie loeschen` entfernen; auf Dauer ein eigenes, kostenloses Cloudflare-Konto für die Galerien (siehe Bekannte Schwächen) |
 
 ## Sicherheitsmodell
 
@@ -183,19 +196,20 @@ Ein Projekt ohne Rechnungskonto kann gar nichts Kostenpflichtiges starten. Bei C
 
 | Fall | Was tun |
 |---|---|
-| Neues Event | [NEUES-EVENT.md](einrichtung/NEUES-EVENT.md) |
-| Verlängern | Im OS neues Ablaufdatum, Neu bauen. Code und Link bleiben. Das Ablaufdatum steckt im Bau, deshalb reicht Ändern allein nicht. |
-| Offline nehmen | Im OS „Offline nehmen“ (`offline.yml`): Platzhalter „Keine Galerie online“, danach alle älteren Deployments des Projekts löschen. Ist schon eine andere Galerie der Marke online, bleibt sie online, ältere Deployments werden trotzdem gelöscht. Fotos in Drive bleiben. |
-| Löschwunsch eines Gastes | Foto in Drive löschen, Neu bauen. `bauen.yml` löscht danach die älteren Deployments selbst. Weil gelöschte Deployments noch eine Weile weiterlaufen können (siehe Bekannte Schwächen), die alten Hash-Adressen (Feld `deployment` im Bericht des jeweiligen Laufs, im OS) nach einer Stunde nachmessen: `curl -s -o /dev/null -w '%{http_code}' https://<hash>.<projekt>.pages.dev/api/status` (404 = weg). Die nackten Fotoadressen aus dem alten Manifest liefern danach die Startseite, weil die Galerie Fotos nur mit Zufallswert (`?s=`) abruft (siehe Sicherheitsmodell). Mail kommt an info@agenturkrueger-digital.de. |
-| Ablauf erreicht | `/api/manifest` antwortet 410, die Seite zeigt „abgelaufen“. Die Dateien liegen weiter bei Cloudflare, bis „Offline nehmen“ läuft. Nach 90 Tagen deshalb aktiv offline nehmen. |
-| Bau fehlgeschlagen | Bericht im OS (entschlüsselt aus dem Artefakt `bericht`): `fehler`, `fehlerDatei`, `md5Fehler`, `uebersprungen`. Im GitHub-Log stehen bewusst keine Dateinamen. Häufig: Ordner liegt nicht in der Geteilten Ablage. |
+| Neues Event | `galerie neu …`, siehe [NEUES-EVENT.md](einrichtung/NEUES-EVENT.md) |
+| Ablauf | Galerien laufen nicht ab (Entscheidung 06.10.2026). Wer doch ein Datum will: `--ablauf` beim Anlegen, im OS das Ablaufdatum. |
+| Offline nehmen | `galerie offline <projekt>` bzw. im OS „Offline nehmen“ (`offline.yml`): Platzhalter „Keine Galerie online“, danach alle älteren Deployments des Projekts löschen. Auf dem OS-Weg gilt: ist schon eine andere Galerie der Marke online, bleibt sie online, ältere Deployments werden trotzdem gelöscht. Fotos in Drive bleiben. |
+| Ganz löschen | `galerie loeschen <projekt>`: Platzhalter, ältere Deployments löschen, dann das Pages-Projekt selbst (nur eigene Galerie-Projekte, nie ein Markenprojekt). |
+| Löschwunsch eines Gastes | Foto in Drive löschen, `galerie neu-bauen <projekt>` bzw. im OS Neu bauen. `bauen.yml` löscht danach die älteren Deployments selbst. Weil gelöschte Deployments noch eine Weile weiterlaufen können (siehe Bekannte Schwächen), die alten Hash-Adressen (Feld `deployment` im Bericht des jeweiligen Laufs, im OS) nach einer Stunde nachmessen: `curl -s -o /dev/null -w '%{http_code}' https://<hash>.<projekt>.pages.dev/api/status` (404 = weg). Die nackten Fotoadressen aus dem alten Manifest liefern danach die Startseite, weil die Galerie Fotos nur mit Zufallswert (`?s=`) abruft (siehe Sicherheitsmodell). Mail kommt an info@agenturkrueger-digital.de. |
+| Ablauf erreicht (nur mit gesetztem Datum) | `/api/manifest` antwortet 410, die Seite zeigt „abgelaufen“. Die Dateien liegen weiter bei Cloudflare, bis „Offline nehmen“ läuft. |
+| Bau fehlgeschlagen | Das Werkzeug zeigt Schritt, Bericht und Log-Auszug. Im OS: Bericht (entschlüsselt aus dem Artefakt `bericht`): `fehler`, `fehlerDatei`, `md5Fehler`, `uebersprungen`. Im GitHub-Log stehen bewusst keine Dateinamen. Häufig: Ordner liegt nicht in der Geteilten Ablage. |
 | Token läuft ab | GitHub-Token im OS spätestens nach 366 Tagen, Cloudflare-Token je nach TTL. |
-| Neue Marke | `marken/<id>/` anlegen, im Vertrag eintragen, erster Bau, dann CNAME im KAS (Anleitung Schritt F). |
+| Neue Marke | [NEUE-MARKE.md](einrichtung/NEUE-MARKE.md), kein DNS. |
 | Schlüssel kompromittiert | `./einrichtung/github-einrichten.sh --neuer-schluessel`, neuen Wert im OS eintragen. Laufende Galerien sind nicht betroffen (der Schlüssel schützt nur die Übergabe). |
 
-Nach jedem ersten Deployment einer Marke prüfen, dass die Function-Daten nicht als Datei herausgehen:
+Nach jedem ersten Deployment prüfen, dass die Function-Daten nicht als Datei herausgehen (`bauen.yml` prüft es bei jedem Lauf selbst):
 ```bash
-curl -s -o /dev/null -w '%{content_type}\n' https://fotos.ambition-circle.de/functions/_daten.js
+curl -s -o /dev/null -w '%{content_type}\n' https://<projekt>.pages.dev/functions/_daten.js
 ```
 Erwartet: `text/html` (die Startseite als Rückfall), nie `application/javascript`.
 

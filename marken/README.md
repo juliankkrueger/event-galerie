@@ -20,7 +20,11 @@ Je Marke ein Ordner mit `marke.json` (Aufbau wie in `VERTRAG.md`), Logo und Favi
 (Feinabstimmung je Titelschrift), aus dem optionalen Block `stil` außerdem `--rund --knopf-schreibung
 --knopf-laufweite --knopf-gewicht --knopf-verlauf --titel-schreibung` und bei `titelVerlauf` eine Regel für
 Kupfertitel (`background-clip: text`). Beispiel: `tests/oberflaeche/marke-beispiel.css`.
-Erlaubte Schriften: Titel `Unbounded` (200, 500) oder `Italiana`, Text `Open Sans` (400, 500, 600) oder `system-ui`.
+Erlaubte Schriften: Titel `Unbounded` (200, 500), `Italiana` oder `Cormorant Garamond` (500, 600; liegt unter `marken/schriften/`, kommt nur mit der Marke ins Deployment, `@font-face` steht dann in `marke.css`), Text `Open Sans` (400, 500, 600) oder `system-ui`.
+
+Optional `hintergrund` (`kopf`, `muster`): Bilddateien im Markenordner. Der Bau kopiert dann alle Bilddateien des Ordners (außer Logo und Favicons) nach `/assets/marke/` und setzt `--hintergrund-kopf`, `--hintergrund-muster` sowie je vorhandener Variante `--hintergrund-<schlüssel>-klein` (kleinstes WebP) und `--hintergrund-<schlüssel>-jpg`.
+
+`domain` ist optional und bei allen Marken weggelassen: Galerien laufen unter `<projekt>.pages.dev`. Kunden-Marke anlegen: `einrichtung/NEUE-MARKE.md`.
 
 `stil` bildet die Event-Seite nach (gemessen 05.10.2026): blueprint-summit.de hat eckige Knöpfe in Versalien
 mit 1px Laufweite und Titel in Unbounded 200 Versal, ambition-circle.de eckige Knöpfe in Versalien mit
@@ -38,6 +42,12 @@ weil `#B67F67` mit `#0E2B2E` nur 4,43:1 erreicht (`tests/bau/marke.test.mjs` pr�
   seit 05.10.2026 das „a“ der Wortmarke in Kupfer auf `#0E2B2E`, ausgeschnitten aus `logo.png`.
 - Impressum und Datenschutz verlinken beide Live-Seiten auf `agenturkrueger-digital.de/impressum/` und `/datenschutz/`.
 
+- Agentur (`agentur`, neutral für Kunden-Events, 06.10.2026): Logo ist die Wortmarke `wp-content/uploads/2025/11/Ativo-110-2048x652.png`
+  von agenturkrueger-digital.de (weiß und Gold, transparent, auf 800 px). Favicons aus dem Bildzeichen `Ativo-120.png` (1893 × 2001)
+  auf deckendem `#11396D` (Zeichen 82 % bei 32/48 px, 76 % bei 192 px, 70 % beim Apple-Icon). Das Favicon der Live-Seite
+  (`cropped-Ativo-160-*.png`) zeigt nur den goldenen Punkt, darum nicht übernommen. Farben aus der Marke: Navy-Grund, Warmgold `#C4A474`
+  bis `#A88365`, Creme `#E7D9B0`.
+
 ## Anrede
 
 Beide Event-Seiten duzen (blueprint-summit.de: 25 Du-Formen gegen 3 Sie-Formen, ambition-circle.de: 13 gegen 2 Sie-Formen,
@@ -49,3 +59,4 @@ die sich dort auf die Mentoren beziehen). Die Galerie duzt deshalb, so steht es 
 |---|---|---|---|---|
 | ambition | 12,1 | 6,9 | 6,0 | 6,0 |
 | blueprint | 15,2 | 7,5 | 8,6 | 8,6 |
+| agentur | 15,1 | 8,3 | 7,8 | 7,8 |

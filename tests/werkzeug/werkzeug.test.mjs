@@ -238,6 +238,13 @@ test("Vorbedingungen: gh abgemeldet, Schlüssel fehlt, gcloud ohne Drive-Recht, 
   assert.match(markenprojekt.stderr, /Projekt einer Marke/);
 });
 
+test("pruefen: Vorbedingungen und Ablage", async () => {
+  const r = await galerie(["pruefen"]);
+  assert.equal(r.code, 0, r.alles);
+  ohneGeheimnis(r.alles);
+  assert.match(r.stdout, /Geteilte Ablage: Event-Galerie/);
+});
+
 test("liste und status zeigen Live-Stand", async () => {
   const l = await galerie(["liste"]);
   assert.equal(l.code, 0, l.alles);

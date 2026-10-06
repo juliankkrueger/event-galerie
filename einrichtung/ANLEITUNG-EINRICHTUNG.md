@@ -1,6 +1,6 @@
 # Event-Galerie einrichten
 
-Einmalige Einrichtung, Reihenfolge einhalten. Gesamtzeit etwa 45 Minuten, dazu Wartezeit bei Google (bis zu 24 Stunden, meist Minuten) und beim Zertifikat (meist unter 15 Minuten).
+Einmalige Einrichtung, Reihenfolge einhalten. Gesamtzeit etwa 45 Minuten, dazu Wartezeit bei Google (bis zu 24 Stunden, meist Minuten).
 
 Alles läuft in **deinem eigenen Terminal**. Kein Wert aus den Schritten A, D oder E gehört in eine Datei, in einen Chat oder in eine Mail.
 
@@ -12,8 +12,8 @@ Das Repo liegt **öffentlich** im Benutzerkonto `juliankkrueger` (`juliankkruege
 | B | `gcloud auth login` und `./google-einrichten.sh` | 10 min |
 | C | Dienstkonto in die Geteilte Ablage | 5 min (plus Wartezeit Google) |
 | D | Cloudflare-Token und Account-ID als GitHub-Secrets | 5 min |
-| E | GitHub-Token und Repo im Krüger OS | 10 min |
-| F | DNS bei ALL-INKL, erst nach dem ersten Bau | 5 min je Domain |
+| E | GitHub-Token und Repo im Krüger OS (nur für den Zweitweg über das OS) | 10 min |
+| F | Werkzeug `galerie` auf dem Rechner | 5 min |
 
 Voraussetzung: `gh auth login` mit dem Konto `juliankkrueger`, `gcloud` installiert (`brew install --cask google-cloud-sdk`), im Krüger OS gibt es unter Integrationen den Eintrag „Event-Galerie Schlüssel“.
 
@@ -121,26 +121,20 @@ gh secret set CLOUDFLARE_ACCOUNT_ID -R juliankkrueger/event-galerie
 
 **Probe**: im OS bei einem Test-Event Reiter Fotogalerie einen Ordner mit drei Fotos bauen. Danach ist die Galerie unter `https://fotos-ambition-circle.pages.dev` bzw. `https://fotos-blueprint-summit.pages.dev` erreichbar. Die Seite muss den Code abfragen. Im OS muss der Bericht lesbar sein (sonst passt der Galerie-Schlüssel nicht).
 
-## F. DNS bei ALL-INKL (erst nach dem ersten Bau je Marke)
+## F. Werkzeug `galerie` (Hauptweg für neue Galerien)
 
-Reihenfolge ist wichtig: Der erste Bau legt das Pages-Projekt an und hängt die Domain an. Steht der CNAME schon vorher, liefert Cloudflare „522“.
+Auf dem Rechner, auf dem Schritt A lief (dort liegt der Galerie-Schlüssel im Schlüsselbund):
 
-Heute zeigt `fotos.ambition-circle.de` und `fotos.blueprint-summit.de` über einen Sammeleintrag (`*`) auf den ALL-INKL-Webserver (gemessen am 05.10.2026). Ein eigener Eintrag für `fotos` hat Vorrang vor dem Sammeleintrag, am Sammeleintrag ändert sich nichts.
-
-Im KAS (https://kas.all-inkl.com) > Domain > DNS-Einstellungen > bei der Domain „bearbeiten“ > Neuen DNS-Eintrag erstellen:
-
-| Domain | Name | Typ | Data |
-|---|---|---|---|
-| ambition-circle.de | `fotos` | CNAME | `fotos-ambition-circle.pages.dev.` |
-| blueprint-summit.de | `fotos` | CNAME | `fotos-blueprint-summit.pages.dev.` |
-
-Das Ziel ist immer `<pagesProjekt>.pages.dev` aus `marken/<id>/marke.json`. Im KAS **keine Subdomain** `fotos` anlegen, nur den DNS-Eintrag, sonst setzt ALL-INKL eigene Einträge daneben.
-
-Danach prüfen:
 ```bash
-dig +short CNAME fotos.ambition-circle.de
+cd event-galerie/werkzeug && npm ci                     # einmal, lädt qrcode
+ln -s "$PWD/galerie" /usr/local/bin/galerie              # oder ein anderer Ordner im PATH
+gcloud auth login --enable-gdrive-access                # Agentur-Konto, Drive-Recht für Prüfen und Kopieren
+galerie liste                                           # muss ohne Fehler laufen
 ```
-Erwartet: `fotos-ambition-circle.pages.dev.` Cloudflare stellt das Zertifikat danach selbst aus. Im Pages-Projekt unter Custom domains steht dann „Active“.
+
+Beim ersten `galerie neu` legt das Werkzeug `~/.config/event-galerie/konfig.json` an (ID der Geteilten Ablage, Repo). Findet es die Ablage nicht eindeutig (genau eine Geteilte Ablage mit „Foto“ oder „Galerie“ im Namen), einmal `EVENT_GALERIE_ABLAGE=<ID>` setzen oder die ID dort eintragen. Die ID gehört nicht ins Repo.
+
+Eigene Domains und DNS-Einträge sind nicht mehr nötig: jede Galerie läuft unter `https://<projekt>.pages.dev` (Entscheidung 06.10.2026).
 
 ---
 
@@ -148,5 +142,5 @@ Erwartet: `fotos-ambition-circle.pages.dev.` Cloudflare stellt das Zertifikat da
 
 - GitHub-Token im OS vor Ablauf erneuern (Schritt E, höchstens 366 Tage).
 - Cloudflare-Token erneuern, falls mit TTL angelegt (Schritt D).
-- Neue Marke: Ordner `marken/<id>/`, ein Bau, dann Schritt F für die neue Domain.
+- Neue Marke: [NEUE-MARKE.md](NEUE-MARKE.md), kein DNS nötig.
 - Galerie-Schlüssel nur bei Verdacht rotieren (Schritt A mit `--neuer-schluessel`).

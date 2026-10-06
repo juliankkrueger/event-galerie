@@ -1,59 +1,52 @@
-# Neues Event in 3 Schritten
+# Neues Event: Galerie in einem Schritt
 
-Für alle im Team, die nach einem Event die Fotos an die Gäste geben. Ohne Technik, alles im Browser.
+Nach jedem Event, für eigene Events (AMBITION Circle, Blueprint Summit) und für Kunden-Events. Jede Galerie bekommt ihre eigene Adresse `https://<projekt>.pages.dev`, beliebig viele können gleichzeitig online sein. Galerien laufen **nicht** von selbst ab, offline gehen sie nur auf ausdrücklichen Wunsch.
 
-## 1. Fotos in die Geteilte Ablage
+## Hauptweg: Werkzeug `galerie`
 
-- Google Drive > Geteilte Ablagen > Ablage der Event-Galerie.
-- Neuen Ordner anlegen, Name wie das Event, z. B. `AMBITION Circle 2026`.
-- Fotos hineinziehen. Erlaubt sind JPG, PNG und HEIC, andere Dateien werden übergangen.
-- **Kapitel** entstehen aus Unterordnern: `Mittwoch/Tag` wird zum Kapitel „Mittwoch · Tag“. Fotos direkt im Event-Ordner landen im Kapitel „Alle Fotos“.
-- Warten, bis Drive „Hochladen abgeschlossen“ meldet.
+Gebraucht werden nur der Link zum Drive-Ordner mit den Fotos und ein Titel. Einmalige Einrichtung: [ANLEITUNG-EINRICHTUNG.md](ANLEITUNG-EINRICHTUNG.md), Schritt F.
 
-Grenze: etwa 4.900 Fotos je Galerie. Doppelt hochgeladene Fotos zählen nur einmal.
+```bash
+galerie neu "https://drive.google.com/drive/folders/<ordner>" --titel "Sommerfest Muster GmbH 2026"
+galerie neu "<link>" --titel "AMBITION Circle 2026" --marke ambition
+```
 
-## 2. Im Krüger OS bauen
+| Schalter | Bedeutung |
+|---|---|
+| `--marke` | `agentur` (Standard, neutral für Kunden-Events), `ambition`, `blueprint` oder eine eigene Kunden-Marke ([NEUE-MARKE.md](NEUE-MARKE.md)) |
+| `--projekt` | eigener Projektname `fotos-…`; sonst `fotos-<titel>-<4 Zeichen>` |
+| `--ablauf` | nur wenn die Galerie wirklich ablaufen soll, ISO mit Zeitzone, z. B. `2027-01-31T23:59:59+01:00` |
 
-- Krüger OS > Events > das Event öffnen > Reiter **Fotogalerie**.
-- Den Link des Drive-Ordners einfügen (in Drive: Rechtsklick auf den Ordner > Teilen > Link kopieren; am Link selbst nichts freigeben).
-- Marke und Ablaufdatum prüfen (Standard 90 Tage), dann **Bauen**.
-- Die Dauer hängt an der Menge: ein paar Dutzend Fotos gehen schnell, mehrere Hundert dauern eher eine halbe Stunde. Das OS zeigt den Stand.
-- Danach den Bericht ansehen: Anzahl, übersprungene Dateien, Fotos mit Standortdaten (die werden in den Vorschauen entfernt, im Original bleiben sie).
+Was das Werkzeug tut, ohne Klick:
+1. Prüft `gh`, `gcloud` (mit Drive-Recht) und den Galerie-Schlüssel im Schlüsselbund. Fehlt etwas, sagt es, mit welchem Befehl man es behebt.
+2. Liegt der Ordner nicht in der Geteilten Ablage der Event-Galerie, kopiert es ihn dorthin (in Drive, ohne Download; ein zweiter Aufruf kopiert nichts doppelt).
+3. Erzeugt Galerie-ID, Projektname und Code, startet den Bau auf GitHub und zeigt den Fortschritt.
+4. Liest den verschlüsselten Bericht: Anzahl Fotos, Größe, übersprungene Dateien, **Fotos mit Standortdaten** (die Vorschauen sind bereinigt, die Originale nicht).
+5. Prüft die fertige Galerie live: Startseite, falscher Code abgewiesen, richtiger Code angenommen, Anzahl stimmt, drei Originale byte-gleich.
+6. Gibt Link, Code, QR-Code (PNG und SVG) und einen fertigen Text für die Gäste aus. Die Dateien liegen in `~/Downloads/Galerie-<titel>/`.
 
-Je Marke ist immer nur **eine** Galerie online. Eine neue Galerie derselben Marke ersetzt die alte.
+Fotos in Drive: JPG, PNG und HEIC, andere Dateien werden übergangen. **Kapitel** entstehen aus Unterordnern (`Mittwoch/Tag` wird „Mittwoch · Tag“). Höchstens etwa 4.900 Fotos je Galerie, doppelte zählen einmal. Dauer: 670 Fotos mit 8,9 GB brauchten 5 Minuten Bau.
 
-## 3. Link an die Gäste
+## Danach
 
-- Im OS den Link mit Code kopieren oder den QR-Code herunterladen. Der Link öffnet die Galerie ohne Code-Eingabe.
-- In Nachrichten an die Teilnehmer **„Galerie-Link einsetzen“** nutzen, dann steht der richtige Link drin.
-- Der Code allein (8 Zeichen) geht auch: Gäste geben ihn auf der Seite ein.
+| Fall | Befehl |
+|---|---|
+| Fotos kamen dazu oder eines muss raus | in Drive ändern, dann `galerie neu-bauen <projekt>` (Link und Code bleiben) |
+| Alle Galerien und ihr Stand | `galerie liste` |
+| Link und Code wiederfinden | `galerie status <projekt>` |
+| Vom Netz nehmen, Adresse behalten | `galerie offline <projekt>` |
+| Ganz löschen | `galerie loeschen <projekt>` (fragt nach) |
+
+**Ein Gast möchte ein Foto entfernt haben:** Foto in der Geteilten Ablage löschen (Papierkorb reicht), `galerie neu-bauen <projekt>`, dem Gast kurz bestätigen. Gleicher Link und Code, die Gäste merken nur, dass das Foto fehlt. Bitte am selben Tag erledigen.
 
 Die Galerie ist nicht über Google auffindbar. Wer Link oder Code hat, sieht alle Fotos.
 
----
+## Zweitweg: Krüger OS
 
-## Ein Gast möchte ein Foto entfernt haben
-
-1. Das Foto in der Geteilten Ablage löschen (in den Papierkorb reicht, der Bau nimmt nichts aus dem Papierkorb).
-2. Im OS beim Event > Fotogalerie > **Neu bauen**.
-3. Dem Gast kurz bestätigen, sobald der Bau durch ist.
-
-Gleicher Code, gleicher Link: Gäste merken davon nur, dass das Foto fehlt. Beim nächsten Aufruf fragt die Seite den Code eventuell neu ab, über den Link geht das von selbst.
-
-Kommt die Bitte per Mail an info@agenturkrueger-digital.de, gilt dasselbe. Bitte am selben Tag erledigen.
-
-## Galerie verlängern
-
-- Im OS beim Event > Fotogalerie neues Ablaufdatum setzen > **Neu bauen**.
-- Link und Code bleiben gleich.
-
-## Galerie vorzeitig abschalten
-
-- Im OS beim Event > Fotogalerie > **Offline nehmen**. Die Seite zeigt dann „Keine Galerie online“, alte Fassungen werden bei Cloudflare gelöscht.
-- Die Fotos in Drive bleiben, wo sie sind.
+Für AMBITION Circle und Blueprint Summit geht es weiter im Browser: Krüger OS > Events > Event > Reiter **Fotogalerie**, Drive-Link einfügen, Ablauf wählen (oder „nie“), **Bauen**. Das OS nutzt je Marke ein festes Projekt (`fotos-ambition-circle.pages.dev`, `fotos-blueprint-summit.pages.dev`), dort ist je Marke immer nur **eine** Galerie online; eine neue ersetzt die alte. Link mit Code und QR-Code gibt es im OS, in Teilnehmer-Nachrichten über „Galerie-Link einsetzen“.
 
 ## Wenn etwas hakt
 
-- **Bau rot:** Bericht im OS ansehen. Häufigster Grund: Ordner liegt nicht in der Geteilten Ablage der Event-Galerie, sondern in „Meine Ablage“.
-- **Gäste sehen „abgelaufen“:** verlängern (siehe oben).
-- **„Zu viele Versuche“:** zehn Minuten warten, dann geht die Eingabe wieder.
+- **Bau rot:** Das Werkzeug zeigt den Schritt, den Fehler aus dem Bericht und einen Auszug aus dem Log. Häufig: Ordner nicht freigegeben oder leer.
+- **„Vorbedingungen fehlen“:** den angezeigten Befehl ausführen (z. B. `gh auth login` oder `gcloud auth login --enable-gdrive-access`).
+- **„Zu viele Versuche“ bei Gästen:** zehn Minuten warten, dann geht die Eingabe wieder.

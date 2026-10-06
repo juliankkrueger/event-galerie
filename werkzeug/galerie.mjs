@@ -45,6 +45,7 @@ const HILFE = `galerie: Fotogalerien der Event-Galerie
   galerie status <projekt>                       Register und Live-Stand einer Galerie
   galerie offline <projekt>                      Platzhalter statt Galerie, Adresse bleibt
   galerie loeschen <projekt> [--ja]              Pages-Projekt ganz löschen (fragt nach, außer --ja)
+  galerie pruefen                                Vorbedingungen prüfen, Konfiguration anlegen
 
   Allgemein: --zeitlimit <min> (Standard 200)
 
@@ -237,7 +238,7 @@ async function befehlNeu(e, gh, pos, w) {
 }
 
 async function ablageFinden(drive) {
-  const passend = (await drive.ablagen()).filter((d) => /galerie/i.test(d.name));
+  const passend = (await drive.ablagen()).filter((d) => /galerie|foto/i.test(d.name));
   if (passend.length === 1) return passend[0].id;
   return null;
 }
@@ -266,6 +267,18 @@ async function liveStand(e, projekt) {
   } catch {
     return "nicht erreichbar";
   }
+}
+
+async function befehlPruefen(e, gh) {
+  const { holeToken } = await vorbedingungen(e, { google: true, schluessel: true, gh });
+  const drive = erzeugeDriveWerkzeug({ api: e.driveApi, holeToken, protokoll: log });
+  const konfig = await ladeKonfig(e, { ablageFinden: () => ablageFinden(drive) });
+  const ablage = (await drive.ablagen()).find((d) => d.id === konfig.ablage);
+  if (!ablage) throw new WerkzeugFehler("Die konfigurierte Geteilte Ablage ist für dieses Konto nicht sichtbar", { hinweis: e.konfigDatei });
+  log("gh angemeldet, gcloud mit Drive-Recht, Galerie-Schlüssel im Schlüsselbund");
+  log(`Geteilte Ablage: ${ablage.name}`);
+  log(`Repo: ${konfig.repo}`);
+  log(`Konfiguration: ${e.konfigDatei}`);
 }
 
 async function befehlListe(e) {
@@ -367,10 +380,11 @@ export async function haupt(argv = process.argv.slice(2), env = process.env) {
     const roh = await leseKonfigRoh(e);
     const repo = e.repoAusUmgebung || roh.repo || "juliankkrueger/event-galerie";
     const gh = erzeugeGithub({ repo, protokoll: log, taktMs: e.taktMs, ausfuehren: fuehreAus });
-    if (befehl !== "neu" && befehl !== "liste" && !rest[0]) throw new WerkzeugFehler("Projektname fehlt", { hinweis: "galerie liste" });
+    if (!["neu", "liste", "pruefen"].includes(befehl) && !rest[0]) throw new WerkzeugFehler("Projektname fehlt", { hinweis: "galerie liste" });
     if (befehl === "neu") await befehlNeu(e, gh, rest, w);
     else if (befehl === "neu-bauen") await befehlNeuBauen(e, gh, rest, w);
     else if (befehl === "liste") await befehlListe(e);
+    else if (befehl === "pruefen") await befehlPruefen(e, gh);
     else if (befehl === "status") await befehlStatus(e, rest);
     else if (befehl === "offline") await befehlOffline(e, gh, rest, w);
     else if (befehl === "loeschen") await befehlLoeschen(e, gh, rest, w);
