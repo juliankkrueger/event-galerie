@@ -1,4 +1,5 @@
-/* Event-Galerie: Gäste-Oberfläche. Farben und Schriften kommen aus assets/marke.css (vom Bau erzeugt). */
+/* Event-Galerie: Gäste-Oberfläche. Farben, Schriften und Hintergründe kommen aus assets/marke.css (vom Bau erzeugt).
+   Ruhige, großzügige Fotogalerie: Bühne mit Titel, typografische Kapitel, Blocksatz-Raster, schwebende Aktionsleiste. */
 
 @font-face {
   font-family: "Unbounded";
@@ -52,16 +53,40 @@
   --f-akzent-text: var(--akzent-text, #101418);
   --f-rahmen: var(--rahmen, #2c3640);
   --f-fehler: #ffb4a8;
+  --f-schleier: rgba(255, 255, 255, 0.06);
+  --schatten: 0 24px 60px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
   --s-titel: var(--schrift-titel, Georgia, serif);
   --s-text: var(--schrift-text, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
-  --rand: clamp(16px, 4vw, 48px);
-  --breite: 1680px;
-  --luecke: 6px;
-  /* --rund kommt aus marke.css (stil.knopfEcken), sonst Pille */
+  --rand: clamp(16px, 4.2vw, 64px);
+  --breite: 1760px;
+  --luecke: 4px;
+  /* --rund kommt aus marke.css (stil.knopfEcken), sonst Pille. Karten höchstens leicht gerundet. */
   --f-rund: var(--rund, 999px);
-  --bild-rund: 3px;
+  --karte-rund: min(var(--f-rund), 14px);
+  --bild-rund: min(var(--f-rund), 2px);
   --dauer: 180ms;
+  --gleiten: cubic-bezier(0.22, 0.61, 0.36, 1);
   color-scheme: dark;
+}
+
+/* Helle Marken (setzt app.js aus --grund) */
+:root[data-hell] {
+  color-scheme: light;
+  --f-fehler: #a3271b;
+  --f-schleier: rgba(0, 0, 0, 0.05);
+  --schatten: 0 24px 60px rgba(30, 25, 15, 0.16), 0 2px 8px rgba(30, 25, 15, 0.08);
+}
+
+@media (min-width: 600px) {
+  :root {
+    --luecke: 6px;
+  }
+}
+
+@media (min-width: 1000px) {
+  :root {
+    --luecke: 8px;
+  }
 }
 
 *,
@@ -81,12 +106,13 @@ html.ansicht-offen {
 }
 
 body {
+  position: relative;
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--f-grund);
+  background: transparent;
   color: var(--f-text);
   font-family: var(--s-text);
   font-size: 1rem;
@@ -95,9 +121,28 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Ruhiger Marken-Hintergrund hinter der ganzen Seite (marke.json "hintergrund.muster").
+   Fest stehend über position: fixed (iOS kennt background-attachment: fixed nicht).
+   Ohne Muster bleibt die Fläche einfarbig. */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100lvh;
+  z-index: -2;
+  pointer-events: none;
+  background-image: var(--hintergrund-muster, none);
+  background-size: cover;
+  background-position: center;
+  opacity: 0.42;
+}
+
 /* --leiste-hoehe misst app.js an der festen Leiste (enthält schon den sicheren Bereich unten) */
 body.mit-leiste {
-  padding-bottom: calc(var(--leiste-hoehe, 132px) + 12px);
+  padding-bottom: calc(var(--leiste-hoehe, 132px) + 28px);
 }
 
 img {
@@ -153,7 +198,7 @@ button {
   padding: 10px 16px;
   background: var(--f-akzent);
   color: var(--f-akzent-text);
-  border-radius: 6px;
+  border-radius: min(var(--f-rund), 6px);
   font-weight: 600;
   text-decoration: none;
 }
@@ -167,13 +212,88 @@ button {
   font-weight: var(--titel-gewicht, 400);
   letter-spacing: var(--titel-laufweite, 0);
   text-transform: var(--titel-schreibung, none);
-  line-height: 1.12;
+  line-height: 1.08;
   margin: 0;
+  text-wrap: balance;
 }
 
 /* Titel mit tabindex="-1" bekommen nur per Skript den Fokus (Zustandswechsel), kein Rahmen */
 .titel[tabindex="-1"]:focus {
   outline: none;
+}
+
+/* ---------- Bühnenbild ---------- */
+
+/* Liegt hinter Kopf und Galerie-Kopf. Höhe setzt app.js in der Galerie (--buehne-h), sonst Bildschirmhöhe. */
+.buehnenbild {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--buehne-h, 100vh);
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Marken-Kopf (marke.json "hintergrund.kopf"): Medaillon rechts, am Handy angeschnitten, aber sichtbar.
+   Steht direkt im CSS (nicht erst nach dem Skript), damit der Browser das Bild sofort lädt. */
+.buehnenbild {
+  background-image: var(--hintergrund-kopf, none);
+  background-size: cover;
+  background-position: 78% 40%;
+  background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 240px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 240px), transparent 100%);
+}
+
+@media (min-width: 761px) {
+  .buehnenbild {
+    background-position: 100% 42%;
+  }
+}
+
+/* Die Prägung hat helle Kanten. Hinter der Schrift dunkelt ein Schleier in Grundfarbe sie ab,
+   rechts bleibt das Medaillon frei (Kontrast gemessen in oberflaeche.spec.mjs, Pixel für Pixel). */
+html.mit-kopfbild .buehnenbild::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--f-grund) 50%, transparent);
+}
+
+@media (min-width: 761px) {
+  html.mit-kopfbild .buehnenbild::after {
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.45) 0, rgba(0, 0, 0, 0.38) 60%, rgba(0, 0, 0, 0.2) 76%, transparent 92%);
+    background: linear-gradient(to right, color-mix(in srgb, var(--f-grund) 66%, transparent) 0, color-mix(in srgb, var(--f-grund) 58%, transparent) 60%, color-mix(in srgb, var(--f-grund) 30%, transparent) 76%, transparent 92%);
+  }
+}
+
+/* Ohne Marken-Kopf: erstes Foto der Galerie, oben sichtbar, hinter dem Text fast ganz ausgeblendet.
+   Hinter Schrift höchstens 10 % Foto, damit der Kontrast auch über einem weißen Bild hält. */
+.titelbild {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 38%;
+  opacity: 0;
+  transition: opacity 1400ms var(--gleiten);
+  filter: saturate(0.85);
+  --maske: linear-gradient(to bottom, rgba(0, 0, 0, 0.44) 0, rgba(0, 0, 0, 0.34) calc(var(--text-oben, 60%) * 0.5), rgba(0, 0, 0, 0.18) calc(var(--text-oben, 60%) * 0.85), rgba(0, 0, 0, 0.1) var(--text-oben, 60%), rgba(0, 0, 0, 0.05) calc(100% - 60px), transparent 100%);
+  -webkit-mask-image: var(--maske);
+  mask-image: var(--maske);
+}
+
+.titelbild.da {
+  opacity: 1;
+}
+
+body:not([data-zustand="galerie"]) .titelbild,
+html.mit-kopfbild .titelbild {
+  display: none;
 }
 
 /* ---------- Kopf ---------- */
@@ -193,7 +313,7 @@ button {
 
 @media (min-width: 760px) {
   .kopf {
-    padding-top: 32px;
+    padding-top: 36px;
   }
   .kopf-logo {
     height: 42px;
@@ -212,10 +332,82 @@ main:focus {
   outline: none;
 }
 
+/* ---------- Hinweis für App-Browser ---------- */
+
+.app-hinweis {
+  max-width: 40rem;
+  margin: 20px 0 0;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--f-rahmen);
+  border-radius: var(--karte-rund);
+  background: var(--f-flaeche);
+  box-shadow: var(--schatten);
+}
+
+body[data-zustand="z-code"] .app-hinweis,
+body[data-zustand="z-meldung"] .app-hinweis {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-hinweis-titel {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.app-hinweis-text,
+.app-hinweis-code {
+  margin: 0 0 10px;
+  color: var(--f-leise);
+  font-size: 0.95rem;
+}
+
+.app-hinweis-code {
+  color: var(--f-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.app-hinweis-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.app-hinweis-feld {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+  color: var(--f-leise);
+}
+
+.app-hinweis-feld input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--f-leise);
+  border-radius: min(var(--f-rund), 8px);
+  background: var(--f-grund);
+  color: var(--f-text);
+  font: inherit;
+}
+
+.app-hinweis-status {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+  color: var(--f-leise);
+}
+
+.app-hinweis-status:empty {
+  display: none;
+}
+
 /* ---------- Zustände ---------- */
 
 .zustand {
-  min-height: 62vh;
+  min-height: 64vh;
   max-width: 30rem;
   margin: 0 auto;
   display: flex;
@@ -227,8 +419,14 @@ main:focus {
   padding: 48px 0;
 }
 
+/* Beim Laden steht der Fuß unterhalb des Bildschirms, sonst springt er, wenn die Galerie erscheint */
+#z-laedt {
+  min-height: calc(100vh - 120px);
+  min-height: calc(100svh - 120px);
+}
+
 .zustand-titel {
-  font-size: calc(clamp(1.75rem, 3vw + 1rem, 2.6rem) * var(--titel-faktor, 1));
+  font-size: calc(clamp(1.9rem, 3vw + 1.1rem, 2.9rem) * var(--titel-faktor, 1));
 }
 
 .zustand-text {
@@ -267,7 +465,7 @@ main:focus {
 
 .code-feld {
   width: 100%;
-  min-height: 58px;
+  min-height: 60px;
   padding: 10px 14px;
   border-radius: min(10px, var(--f-rund));
   border: 1px solid var(--f-leise);
@@ -275,7 +473,7 @@ main:focus {
   color: var(--f-text);
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 1.5rem;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.24em;
   text-align: center;
   text-transform: uppercase;
 }
@@ -316,14 +514,14 @@ main:focus {
   border: 1px solid transparent;
   background: transparent;
   font-weight: var(--knopf-gewicht, 600);
-  font-size: 0.95rem;
+  font-size: 0.925rem;
   line-height: 1.2;
   text-transform: var(--knopf-schreibung, none);
   letter-spacing: var(--knopf-laufweite, normal);
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color var(--dauer), color var(--dauer), border-color var(--dauer), opacity var(--dauer);
+  transition: background-color var(--dauer), color var(--dauer), border-color var(--dauer), opacity var(--dauer), filter var(--dauer);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -345,10 +543,10 @@ main:focus {
   }
   .knopf-leise:hover:not(:disabled) {
     border-color: var(--f-text);
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: var(--f-schleier);
   }
   .knopf-symbol:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--f-schleier);
   }
   .kapitel-link:hover {
     color: var(--f-text);
@@ -356,8 +554,14 @@ main:focus {
   .fuss-links a:hover {
     color: var(--f-text);
   }
+  .leiste-nebenlink:hover {
+    color: var(--f-text);
+  }
   .ansicht-pfeil:hover {
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.72);
+  }
+  .kachel:hover .kachel-bild img {
+    transform: scale(1.03);
   }
 }
 
@@ -368,7 +572,7 @@ main:focus {
 .knopf-klein {
   min-height: 40px;
   padding: 0 16px;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
 }
 
 .knopf:disabled {
@@ -396,46 +600,62 @@ main:focus {
   height: 22px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-/* ---------- Galerie ---------- */
+/* ---------- Galerie-Kopf ---------- */
 
+/* Großzügige Bühne: Text unten bündig, darüber Luft für Marken-Hintergrund oder Titelfoto */
 .galerie-kopf {
-  padding: clamp(28px, 6vw, 72px) 0 clamp(20px, 3vw, 32px);
-  display: grid;
+  min-height: clamp(250px, 44vh, 400px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   gap: 10px;
+  padding: 32px 0 30px;
+}
+
+@media (min-width: 760px) {
+  .galerie-kopf {
+    min-height: clamp(340px, 52vh, 600px);
+    gap: 14px;
+    padding-bottom: 44px;
+  }
+}
+
+.galerie-oberzeile {
+  margin: 0;
+  color: var(--f-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 
 .galerie-titel {
-  font-size: calc(clamp(2rem, 4.2vw + 1rem, 4.2rem) * var(--titel-faktor, 1));
-  max-width: 22ch;
+  font-size: calc(clamp(2.2rem, 4.6vw + 1rem, 5rem) * var(--titel-faktor, 1));
+  max-width: 18ch;
 }
 
 .galerie-info {
   margin: 0;
   color: var(--f-leise);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Jede Angabe bleibt zusammen ("online bis 3. Januar 2027" bricht nicht mitten im Datum) */
+.galerie-info span {
+  white-space: nowrap;
 }
 
 .galerie-werkzeuge {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 18px;
-  margin-top: 12px;
-}
-
-@media (max-width: 640px) {
-  .galerie-kopf {
-    padding: 22px 0 18px;
-    gap: 6px;
-  }
-  .galerie-werkzeuge {
-    margin-top: 6px;
-    gap: 8px 14px;
-  }
+  gap: 10px 20px;
+  margin-top: 10px;
 }
 
 .galerie-tipp {
@@ -448,13 +668,24 @@ body.waehlt .galerie-tipp {
   visibility: hidden;
 }
 
+/* ---------- Kapitel-Navigation ---------- */
+
 .kapitelleiste {
   position: sticky;
   top: 0;
   z-index: 5;
   margin: 0 calc(var(--rand) * -1);
   background: var(--f-grund);
+  border-top: 1px solid var(--f-rahmen);
   border-bottom: 1px solid var(--f-rahmen);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) and (background: color-mix(in srgb, red 50%, transparent)) {
+  .kapitelleiste {
+    background: color-mix(in srgb, var(--f-grund) 86%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+    backdrop-filter: blur(16px) saturate(1.15);
+  }
 }
 
 /* Verlauf an den Rändern zeigt, dass die Leiste weiterläuft (Klassen setzt app.js) */
@@ -488,8 +719,9 @@ body.waehlt .galerie-tipp {
 
 .kapitelliste {
   display: flex;
-  gap: 4px 26px;
-  margin: 0;
+  gap: 4px 32px;
+  max-width: var(--breite);
+  margin: 0 auto;
   padding: 0 var(--rand);
   list-style: none;
   white-space: nowrap;
@@ -504,12 +736,22 @@ body.waehlt .galerie-tipp {
 }
 
 .kapitel-link {
-  display: inline-block;
-  padding: 14px 0 12px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 15px 0 13px;
   border-bottom: 2px solid transparent;
   color: var(--f-leise);
   text-decoration: none;
-  font-size: 0.925rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  transition: color var(--dauer), border-color var(--dauer);
+}
+
+.kapitel-link-nr {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
 }
 
 .kapitel-link[aria-current="true"] {
@@ -517,29 +759,40 @@ body.waehlt .galerie-tipp {
   border-bottom-color: var(--f-akzent);
 }
 
+/* ---------- Kapitel ---------- */
+
 .kapitel {
-  padding-top: clamp(28px, 4vw, 48px);
-  scroll-margin-top: 52px;
+  padding-top: clamp(36px, 5vw, 72px);
+  scroll-margin-top: 56px;
 }
 
 .kapitel-kopf {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px 14px;
-  margin-bottom: 16px;
+  align-items: end;
+  gap: 6px 16px;
+  margin-bottom: clamp(14px, 2vw, 24px);
 }
 
 .kapitel-kopftext {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px 14px;
+  gap: 4px 16px;
   min-width: 0;
 }
 
+.kapitel-nr {
+  flex: 1 0 100%;
+  color: var(--f-leise);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  font-variant-numeric: tabular-nums;
+}
+
 .kapitel-titel {
-  font-size: calc(clamp(1.35rem, 1.6vw + 0.9rem, 2rem) * var(--titel-faktor, 1));
+  font-size: calc(clamp(1.5rem, 1.8vw + 1rem, 2.4rem) * var(--titel-faktor, 1));
 }
 
 .kapitel-anzahl {
@@ -554,15 +807,17 @@ body.waehlt .galerie-tipp {
 /* Am Handy: Titel über die ganze Breite, darunter Anzahl und Knopf in einer Zeile */
 @media (max-width: 640px) {
   .kapitel {
-    padding-top: 22px;
+    padding-top: 30px;
   }
   .kapitel-kopf {
     margin-bottom: 12px;
     row-gap: 2px;
+    align-items: center;
   }
   .kapitel-kopftext {
     display: contents;
   }
+  .kapitel-nr,
   .kapitel-titel {
     grid-column: 1 / -1;
   }
@@ -573,48 +828,83 @@ body.waehlt .galerie-tipp {
     grid-column: 2;
   }
   .kapitel-link {
-    padding: 11px 0 9px;
+    padding: 12px 0 10px;
   }
 }
 
-/* Mauerwerk: Zeilen zu 4 px, die Spannweite setzt app.js aus dem Seitenverhältnis */
+/* ---------- Raster im Blocksatz ----------
+   Jede Kachel wächst im Verhältnis ihres Seitenverhältnisses (--v). Dadurch sind alle Fotos einer
+   Zeile gleich hoch und füllen die Breite exakt, ohne Skript und ohne Neuberechnung beim Drehen.
+   Der unsichtbare Füller am Ende hält die letzte Zeile in Normalhöhe. --zeile ist die Zielhöhe. */
 .raster {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  grid-auto-rows: 4px;
-  column-gap: var(--luecke);
-  row-gap: 0;
-  align-items: start;
+  --zeile: calc((100vw - 2 * var(--rand)) / 2.8);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--luecke);
+}
+
+.raster::after {
+  content: "";
+  flex: 100000 1 0px;
+}
+
+/* Sobald app.js die Zeilen berechnet hat (bessere Umbrüche, gleichmäßigere Höhen): feste Breiten,
+   die letzte Kachel jeder vollen Zeile nimmt den Rundungsrest auf. */
+.raster.blocksatz .kachel {
+  flex: 0 0 var(--w);
+}
+
+.raster.blocksatz .kachel.zeilenende {
+  flex-grow: 1;
+}
+
+.raster.blocksatz::after {
+  content: none;
 }
 
 @media (min-width: 600px) {
   .raster {
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    --zeile: 190px;
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1000px) {
   .raster {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    --zeile: 236px;
+  }
+}
+
+@media (min-width: 1500px) {
+  .raster {
+    --zeile: 280px;
   }
 }
 
 .kachel {
   position: relative;
+  flex: var(--v, 1.5) 1 calc(var(--v, 1.5) * var(--zeile));
+  min-width: 0;
+  aspect-ratio: var(--v, 1.5);
   border-radius: var(--bild-rund);
   overflow: hidden;
   background: var(--f-flaeche);
+  /* Kacheln außerhalb des Bildschirms rechnet der Browser nicht durch (700 Fotos bleiben flüssig).
+     Die Größe steht über aspect-ratio fest, darum springt nichts. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto calc(var(--v, 1.5) * var(--zeile)) auto var(--zeile);
 }
 
 .kachel-bild {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  aspect-ratio: var(--v, 1.5);
+  height: 100%;
   padding: 0;
   border: 0;
   background: var(--f-flaeche);
   cursor: zoom-in;
-  position: relative;
 }
 
 .kachel-bild img {
@@ -622,7 +912,13 @@ body.waehlt .galerie-tipp {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 400ms ease, opacity var(--dauer);
+  opacity: 0;
+  transition: opacity 600ms var(--gleiten), transform 700ms var(--gleiten);
+}
+
+/* Weich einblenden, sobald das Foto geladen ist (Klasse setzt app.js) */
+.kachel.da .kachel-bild img {
+  opacity: 1;
 }
 
 .kachel-bild::after {
@@ -639,15 +935,9 @@ body.waehlt .galerie-tipp {
   outline: none;
 }
 
-/* Fokus als Rahmen im Bild: kupfer- bzw. türkisfarben mit dunkler Kante, auf jedem Foto sichtbar */
+/* Fokus als Rahmen im Bild, mit dunkler Kante, auf jedem Foto sichtbar */
 .kachel-bild:focus-visible::after {
   box-shadow: inset 0 0 0 3px var(--f-akzent), inset 0 0 0 6px rgba(0, 0, 0, 0.75);
-}
-
-@media (hover: hover) {
-  .kachel:hover .kachel-bild img {
-    transform: scale(1.025);
-  }
 }
 
 body.waehlt .kachel-bild {
@@ -693,7 +983,7 @@ body.waehlt .kachel-bild {
   border: 2px solid #fff;
   background: rgba(0, 0, 0, 0.38);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-  transition: background-color var(--dauer), border-color var(--dauer), opacity var(--dauer);
+  transition: background-color var(--dauer), border-color var(--dauer), opacity var(--dauer), transform var(--dauer);
 }
 
 .kachel-kreis svg {
@@ -722,6 +1012,7 @@ body.waehlt .kachel-bild {
   opacity: 1;
   background: var(--f-akzent);
   border-color: var(--f-akzent);
+  transform: scale(1.06);
 }
 
 .kachel.gewaehlt .kachel-kreis svg {
@@ -732,8 +1023,8 @@ body.waehlt .kachel-bild {
   box-shadow: inset 0 0 0 3px var(--f-akzent);
 }
 
-.kachel.gewaehlt .kachel-bild img {
-  opacity: 0.86;
+.kachel.da.gewaehlt .kachel-bild img {
+  opacity: 0.84;
 }
 
 /* ---------- Fuß ---------- */
@@ -741,7 +1032,7 @@ body.waehlt .kachel-bild {
 .fuss {
   width: 100%;
   max-width: var(--breite);
-  margin: 72px auto 0;
+  margin: clamp(72px, 9vw, 120px) auto 0;
   padding: 28px var(--rand) calc(32px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--f-rahmen);
   color: var(--f-leise);
@@ -751,7 +1042,7 @@ body.waehlt .kachel-bild {
 .fuss-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 22px;
+  gap: 4px 24px;
 }
 
 .fuss-links a {
@@ -772,6 +1063,7 @@ body.mit-event-knopf #link-event {
 
 /* ---------- Aktionsleiste ---------- */
 
+/* Am Handy volle Breite unten, am Rechner eine schwebende Karte. */
 .leiste {
   position: fixed;
   left: 0;
@@ -780,8 +1072,27 @@ body.mit-event-knopf #link-event {
   z-index: 20;
   background: var(--f-flaeche);
   border-top: 1px solid var(--f-rahmen);
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--schatten);
   padding: 12px max(var(--rand), env(safe-area-inset-left, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(var(--rand), env(safe-area-inset-right, 0px));
+  animation: hochgleiten 320ms var(--gleiten) both;
+}
+
+@keyframes hochgleiten {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 761px) {
+  .leiste {
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    width: min(calc(100% - 2 * var(--rand)), 940px);
+    margin: 0 auto;
+    padding: 14px 16px 14px 24px;
+    border: 1px solid var(--f-rahmen);
+    border-radius: var(--karte-rund);
+  }
 }
 
 .leiste-zeile {
@@ -798,6 +1109,7 @@ body.mit-event-knopf #link-event {
   margin: 0;
   min-width: 0;
   flex: 1 1 16rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .zaehler-zahl {
@@ -824,7 +1136,8 @@ body.mit-event-knopf #link-event {
 
 .leiste-nebenlink {
   display: block;
-  margin: 0 auto;
+  margin: 2px auto 0;
+  min-height: 44px;
   padding: 6px 4px;
   border: 0;
   background: none;
@@ -919,6 +1232,13 @@ body.mit-event-knopf #link-event {
   border-bottom: 1px solid var(--f-rahmen);
   max-height: 55vh;
   overflow-y: auto;
+  animation: einblenden 240ms var(--gleiten) both;
+}
+
+@keyframes einblenden {
+  from {
+    opacity: 0;
+  }
 }
 
 .panel-kopf {
@@ -935,7 +1255,7 @@ body.mit-event-knopf #link-event {
 }
 
 .panel-text {
-  margin: 2px 0 10px;
+  margin: 2px 0 12px;
   color: var(--f-leise);
   max-width: 48rem;
 }
@@ -943,10 +1263,10 @@ body.mit-event-knopf #link-event {
 .fortschritt {
   display: block;
   width: 100%;
-  height: 6px;
-  margin: 0 0 12px;
+  height: 4px;
+  margin: 0 0 14px;
   border: 0;
-  border-radius: 3px;
+  border-radius: 2px;
   background: var(--f-rahmen);
   overflow: hidden;
   -webkit-appearance: none;
@@ -974,6 +1294,10 @@ body.mit-event-knopf #link-event {
   gap: 8px;
 }
 
+.panel-liste:empty {
+  display: none;
+}
+
 .panel-eintrag {
   display: flex;
   flex-wrap: wrap;
@@ -991,9 +1315,10 @@ body.mit-event-knopf #link-event {
 }
 
 @media (max-width: 640px) {
-  .panel-knoepfe .knopf-primaer {
+  .panel-knoepfe .knopf {
     flex: 1 1 100%;
     min-height: 52px;
+    white-space: normal;
   }
 }
 
@@ -1009,15 +1334,17 @@ body.mit-event-knopf #link-event {
   margin: 0;
   padding: 0;
   border: 0;
-  background: #050708;
-  background: color-mix(in srgb, var(--f-grund) 35%, #000);
+  background: #060708;
+  background: color-mix(in srgb, var(--f-grund) 20%, #050505);
   color: #fff;
   overflow: hidden;
+  color-scheme: dark;
 }
 
 .ansicht[open] {
   display: flex;
   flex-direction: column;
+  animation: einblenden 220ms var(--gleiten) both;
 }
 
 .ansicht::backdrop {
@@ -1037,7 +1364,8 @@ body.mit-event-knopf #link-event {
 
 .ansicht-titel {
   margin: 0;
-  font-size: 0.925rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
   min-width: 0;
 }
@@ -1077,6 +1405,13 @@ body.mit-event-knopf #link-event {
   color: var(--f-akzent-text);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .ansicht .knopf-symbol:hover,
+  .ansicht .knopf-leise:hover:not(:disabled):not([aria-pressed="true"]) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
 .haken {
   width: 16px;
   height: 16px;
@@ -1110,7 +1445,7 @@ body.mit-event-knopf #link-event {
   height: 100%;
   object-fit: contain;
   transform: translateX(var(--wisch, 0px));
-  transition: transform 220ms ease, opacity 200ms ease;
+  transition: transform 220ms var(--gleiten), opacity 260ms ease;
   -webkit-user-drag: none;
 }
 
@@ -1149,9 +1484,9 @@ body.mit-event-knopf #link-event {
 
 @media (min-width: 641px) {
   .buehne-bild {
-    left: 76px;
-    right: 76px;
-    width: calc(100% - 152px);
+    left: 80px;
+    right: 80px;
+    width: calc(100% - 160px);
   }
 }
 
@@ -1185,10 +1520,18 @@ body.mit-event-knopf #link-event {
     scroll-behavior: auto !important;
   }
   .kachel:hover .kachel-bild img {
-    transform: none;
+    transform: none !important;
   }
   .lader {
     animation: none;
     border-top-color: var(--f-rahmen);
+  }
+}
+
+/* Hohe Kontraste: Bühnenbild und Muster weg, damit nichts hinter der Schrift liegt */
+@media (forced-colors: active) {
+  body::before,
+  .buehnenbild {
+    display: none;
   }
 }

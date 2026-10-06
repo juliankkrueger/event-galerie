@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "mock": "node mock-server.mjs",
-    "test": "node --test werkzeuge.test.mjs && playwright test",
+    "test": "node --test werkzeuge.test.mjs sichern.test.mjs && playwright test",
+    "matrix": "playwright test --project 'g-*' && node matrix.mjs",
+    "ansehen": "node ansehen.mjs",
     "integration": "node integration.mjs blueprint && node integration.mjs ambition"
   },
   "devDependencies": {

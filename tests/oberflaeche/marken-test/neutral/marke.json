@@ -1,0 +1,8 @@
+{ "id": "neutral", "name": "Beispiel Forum", "eventSeite": "https://example.org",
+  "pagesProjekt": "fotos-beispiel",
+  "farben": { "grund": "#F4F1EA", "flaeche": "#FFFFFF", "text": "#1D1C1A", "textLeise": "#55514A",
+              "akzent": "#23436E", "akzentText": "#FFFFFF", "rahmen": "#D9D3C7" },
+  "schriften": { "titel": "Italiana", "text": "system-ui" },
+  "stil": { "knopfEcken": "rund" },
+  "logo": "logo.png", "favicon": { "ico": "favicon.ico", "png32": "favicon-32.png", "png192": "favicon-192.png", "apple": "apple-touch-icon.png" },
+  "impressum": "https://example.org/impressum/", "datenschutz": "https://example.org/datenschutz/" }

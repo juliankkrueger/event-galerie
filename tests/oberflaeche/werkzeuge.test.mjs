@@ -142,3 +142,87 @@ test('Fotopfade bekommen je Seitenansicht einen Zufallswert (Edge-Cache von Page
   assert.equal(w.mitSitzung('/assets/logo.png', s), '/assets/logo.png');
   assert.equal(w.bildMitSitzung({ handy: { pfad: '/b/t/h/y.jpg', bytes: 1 }, h: 400 }, s).handy.pfad, `/b/t/h/y.jpg?s=${s}`);
 });
+
+// ---------- Umgebung (06.10.2026) ----------
+
+const UA = {
+  iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1',
+  chromeIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0 Mobile/15E148 Safari/604.1',
+  ipadOs: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15',
+  pixel: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36',
+  firefoxAndroid: 'Mozilla/5.0 (Android 15; Mobile; rv:143.0) Gecko/143.0 Firefox/143.0',
+  instagramAndroid: 'Mozilla/5.0 (Linux; Android 14; Pixel 7 Build/AP2A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0 Mobile Safari/537.36 Instagram 351.0.0.41.106 Android',
+  webviewAndroid: 'Mozilla/5.0 (Linux; Android 14; SM-S921B; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0 Mobile Safari/537.36',
+  facebookIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/22G86 [FBAN/FBIOS;FBAV/490.0]',
+  wkwebview: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+  desktop: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Safari/537.36',
+};
+
+test('Umgebung: Weg kommt aus den Feature-Tests, nicht aus dem User-Agent', () => {
+  // Gleicher User-Agent, andere Features: anderer Weg
+  assert.equal(w.umgebungBewerten({ ua: UA.iphone, teilenDateien: true, touch: true }).weg, 'teilen');
+  assert.equal(w.umgebungBewerten({ ua: UA.iphone, teilenDateien: false, touch: true }).weg, 'zip');
+  assert.equal(w.umgebungBewerten({ ua: UA.pixel, teilenDateien: true, touch: false }).weg, 'zip');
+  // Ein Android-UA allein schaltet nichts um
+  assert.equal(w.umgebungBewerten({ ua: UA.pixel }).weg, 'zip');
+  assert.equal(w.umgebungBewerten({ ua: UA.firefoxAndroid, teilenDateien: false, touch: true }).plattform, 'android');
+  assert.equal(w.plattform(UA.ipadOs, { touchPunkte: 5 }), 'ios');
+  assert.equal(w.plattform(UA.ipadOs, { touchPunkte: 0 }), 'andere');
+  assert.equal(w.plattform(UA.chromeIos), 'ios');
+});
+
+test('App-Browser: erkannt, Hinweis nur ohne Teilen', () => {
+  assert.equal(w.inAppName(UA.instagramAndroid), 'Instagram');
+  assert.equal(w.inAppName(UA.facebookIos), 'Facebook');
+  assert.equal(w.inAppName(UA.webviewAndroid), 'App');
+  assert.equal(w.inAppName(UA.wkwebview), 'App');
+  for (const ua of [UA.iphone, UA.chromeIos, UA.pixel, UA.firefoxAndroid, UA.desktop]) assert.equal(w.inAppName(ua), null, ua);
+  assert.equal(w.umgebungBewerten({ ua: UA.instagramAndroid, teilenDateien: false, touch: true }).hinweisApp, 'Instagram');
+  // Kann die App Dateien teilen, klappt das Sichern auch dort: kein Hinweis
+  assert.equal(w.umgebungBewerten({ ua: UA.facebookIos, teilenDateien: true, touch: true }).hinweisApp, null);
+});
+
+test('Intent-Link und Galerie-Link', () => {
+  assert.equal(w.intentAdresse('https://fotos.ambition-circle.de/'), 'intent://fotos.ambition-circle.de/#Intent;scheme=https;action=android.intent.action.VIEW;end');
+  assert.equal(w.intentAdresse('javascript:alert(1)'), null);
+  assert.equal(w.intentAdresse('kaputt'), null);
+  assert.equal(w.galerieLink('https://fotos.x.de', 'GAST2345'), 'https://fotos.x.de/#c=GAST2345');
+  assert.equal(w.galerieLink('https://fotos.x.de/', null), 'https://fotos.x.de/');
+  assert.equal(w.galerieLink('https://fotos.x.de', 'falsch'), 'https://fotos.x.de/');
+});
+
+test('Wartezeiten: drei Wiederholungen mit wachsender Pause und Streuung', () => {
+  assert.equal(w.WIEDERHOLUNGEN.length, 3);
+  assert.deepEqual([0, 1, 2].map((v) => w.wartezeit(v, () => 0.5)), w.WIEDERHOLUNGEN);
+  assert.ok(w.wartezeit(0, () => 0) >= w.WIEDERHOLUNGEN[0] * 0.8);
+  assert.ok(w.wartezeit(2, () => 0.999) <= w.WIEDERHOLUNGEN[2] * 1.2);
+});
+
+test('Blocksatz: Zeilen füllen die Breite, Höhen nah am Ziel, letzte Zeile ungestreckt', () => {
+  const vs = [1.5, 0.667, 1, 1.778, 0.8, 1.5, 1.5, 0.667, 1.5, 0.667, 1, 1.778, 3.2, 0.5];
+  for (const [breite, luecke, ziel] of [[1190, 8, 236], [288, 4, 103], [358, 4, 128], [720, 6, 190]]) {
+    const zeilen = w.zeilenBilden(vs, breite, luecke, ziel);
+    assert.equal(zeilen[0][0], 0);
+    assert.equal(zeilen.at(-1)[1], vs.length - 1);
+    for (let i = 1; i < zeilen.length; i += 1) assert.equal(zeilen[i][0], zeilen[i - 1][1] + 1, 'lückenlos');
+    for (const [a, b, summe, letzte] of zeilen) {
+      assert.ok(Math.abs(summe - vs.slice(a, b + 1).reduce((s, v) => s + v, 0)) < 1e-9);
+      if (letzte) continue;
+      const h = (breite - luecke * (b - a)) / summe;
+      // Einzelne Panoramen dürfen niedriger sein, sonst bleibt jede Zeile in 0,5 bis 1,8 der Zielhöhe
+      if (b > a) assert.ok(h > ziel * 0.5 && h < ziel * 1.8, `Höhe ${h.toFixed(0)} bei Ziel ${ziel}`);
+    }
+  }
+  assert.deepEqual(w.zeilenBilden([], 1000, 8, 200), []);
+  assert.deepEqual(w.zeilenBilden([5], 300, 8, 200), [[0, 0, 5, false]]);
+});
+
+test('Texte der Oberfläche ohne Gedankenstriche', async () => {
+  const { readFile } = await import('node:fs/promises');
+  for (const datei of ['index.html', 'assets/app.js', 'assets/ansicht.js', 'assets/sichern.js', 'assets/werkzeuge.js']) {
+    const text = await readFile(new URL(`../../vorlage/${datei}`, import.meta.url), 'utf8');
+    // Nur Zeichenketten und HTML-Text prüfen, Kommentare dürfen alles
+    const ohneKommentare = text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/<!--[\s\S]*?-->/g, '');
+    assert.doesNotMatch(ohneKommentare, /[–—]/, datei);
+  }
+});

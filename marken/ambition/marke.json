@@ -6,4 +6,5 @@
   "stil": { "knopfEcken": "eckig", "knopfVersal": true, "knopfLaufweite": "0.04em", "knopfGewicht": 500,
             "knopfVerlauf": ["#F4CFC0", "#C69C7B", "#B9836A"], "titelVerlauf": ["#F4CFC0", "#C69C7B", "#B9836A"] },
   "logo": "logo.png", "favicon": { "ico": "favicon.ico", "png32": "favicon-32.png", "png192": "favicon-192.png", "apple": "apple-touch-icon.png" },
-  "impressum": "https://agenturkrueger-digital.de/impressum/", "datenschutz": "https://agenturkrueger-digital.de/datenschutz/" }
+  "impressum": "https://agenturkrueger-digital.de/impressum/", "datenschutz": "https://agenturkrueger-digital.de/datenschutz/",
+  "hintergrund": { "kopf": "hintergrund-kopf-2560.webp", "muster": "hintergrund-muster-2560.webp" } }

@@ -221,7 +221,7 @@ test('Auswahl, Zähler, alle im Kapitel, alle gesamt', async ({ page }, info) =>
   // MB stimmen mit dem Manifest
   const m = await manifestAusSeite(page);
   const b = m.kapitel[0].bilder.slice(0, 3).concat([m.kapitel[0].bilder[4]]);
-  const handy = await page.evaluate(() => window.__galerie.zustand.handy);
+  const handy = await page.evaluate(() => window.__galerie.zustand.weg !== 'zip');
   const summe = b.reduce((s, x) => s + (handy ? x.h.bytes : x.o.bytes), 0);
   const text = (summe / 1e6).toLocaleString('de-DE', { maximumFractionDigits: 1 });
   await expect(page.locator('#zaehler')).toContainText(`${text} MB`);
@@ -565,9 +565,12 @@ test('Zugänglichkeit mit axe-core (WCAG 2.1 AA)', async ({ browser }, info) => 
     await ctx.request.post('/__mock', { data: { reset: true, marke } });
     const page = await ctx.newPage();
     const pruefen = async (name) => {
+      // Einblendungen (Leiste, Großansicht) erst zu Ende laufen lassen, sonst misst axe Mischfarben
+      await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))));
+      await page.waitForTimeout(300);
       await page.addScriptTag({ path: axePfad });
       const r = await page.evaluate(async () => window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] }));
-      ergebnisse[`${marke}-${name}`] = r.violations.map((v) => `${v.id}: ${v.nodes.length}`);
+      ergebnisse[`${marke}-${name}`] = r.violations.map((v) => `${v.id}: ${v.nodes.length} (${v.nodes.map((n) => `${n.target.join(' ')} ${n.any?.[0]?.message || ''}`).join(' | ')})`);
     };
     await page.goto('/');
     await expect(page.locator('#z-code')).toBeVisible();
@@ -741,4 +744,139 @@ test('320 px: Leiste und Großansicht ohne Umbruch und Querscrollen', async ({ p
   expect(Math.max(...m.knoepfe)).toBeLessThanOrEqual(50);
   await keinQuerscrollen(page);
   await page.screenshot({ path: path.join(SCREENS, 'w320-leiste.png') });
+});
+
+// ---------- Bühnenbild, Kontrast, Marken (06.10.2026) ----------
+
+const lum = ([r, g, b]) => {
+  const k = (c) => { const x = c / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * k(r) + 0.7152 * k(g) + 0.0722 * k(b);
+};
+const kontrast = (a, b) => { const [h, d] = [lum(a), lum(b)].sort((x, y) => y - x); return (h + 0.05) / (d + 0.05); };
+const rgb = (s) => s.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number);
+
+// Misst den Kontrast echt am Bild: Text unsichtbar machen, Hintergrund hinter jeder Textbox auslesen
+// und den ungünstigsten Pixel gegen die Textfarbe (bzw. jede Verlaufsfarbe des Titels) rechnen.
+for (const [marke, variante] of [['blueprint', 'hell'], ['neutral', 'hell'], ['ambition', 'vertrag']]) {
+  test(`Kontrast über dem Bühnenbild: ${marke}${variante === 'hell' ? ' mit weißem Titelfoto' : ' mit Marken-Hintergrund'}`, async ({ page, request }, info) => {
+    test.skip(!istDesktop(info) && info.project.name !== 'iphone-13', 'Rechner und ein Handy');
+    const sharp = (await import('sharp')).default;
+    await mock(request, { marke, variante });
+    await anmelden(page);
+    await expect(page.locator('#titelbild.da, html.mit-kopfbild #titelbild')).toHaveCount(1, { timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(1800); // Einblendung des Titelbilds
+    const ziele = ['.galerie-oberzeile', '#galerie-titel', '#galerie-info', '#galerie-tipp', '#alle-knopf', '.kopf-logo'];
+    const boxen = await page.evaluate((sel) => sel.map((s) => {
+      const e = document.querySelector(s);
+      const r = e.getBoundingClientRect();
+      const cs = getComputedStyle(e);
+      const verlauf = (cs.backgroundImage.match(/rgb\([^)]+\)/g) || []);
+      // Nur die Zeilen mit Schrift messen, nicht die ganze Blockbreite
+      const bereich = document.createRange();
+      bereich.selectNodeContents(e);
+      const zeilen = [...bereich.getClientRects()].filter((z) => z.width > 1).map((z) => ({ x: z.x, y: z.y, w: z.width, h: z.height }));
+      return { s, x: r.x, y: r.y, w: r.width, h: r.height, zeilen: zeilen.length ? zeilen : [{ x: r.x, y: r.y, w: r.width, h: r.height }], farbe: cs.color, verlauf, gross: parseFloat(cs.fontSize) >= 24 };
+    }), ziele);
+    // Ausblenden über das CSSOM (ein <style>-Tag verbietet die CSP, gewollt)
+    await page.evaluate(() => {
+      for (const e of document.querySelectorAll('.galerie-kopf, .galerie-kopf *, .kopf-logo')) {
+        e.style.setProperty('opacity', '0', 'important');
+        e.style.setProperty('transition', 'none', 'important');
+      }
+    });
+    await page.waitForTimeout(100);
+    const datei = path.join(ERGEBNISSE, `kontrast-${marke}-${info.project.name}.png`);
+    await page.screenshot({ path: datei });
+    await page.evaluate(() => {
+      for (const e of document.querySelectorAll('.galerie-kopf, .galerie-kopf *, .kopf-logo')) { e.style.removeProperty('opacity'); e.style.removeProperty('transition'); }
+    });
+    const { data, info: bild } = await sharp(datei).raw().toBuffer({ resolveWithObject: true });
+    const dpr = bild.width / page.viewportSize().width;
+    const ergebnis = {};
+    for (const b of boxen.filter((x) => x.s !== '.kopf-logo')) {
+      let schlechtester = null;
+      let wo = null;
+      const stopps = b.verlauf.map(rgb);
+      // Verlauf 135°: Farbe am Punkt (dx, dy) liegt bei t = (dx + dy) / (Breite + Höhe)
+      const farbeBei = (x, y) => {
+        if (!stopps.length) return rgb(b.farbe);
+        const t = Math.min(1, Math.max(0, ((x / dpr - b.x) + (y / dpr - b.y)) / (b.w + b.h))) * (stopps.length - 1);
+        const i = Math.min(stopps.length - 2, Math.floor(t));
+        const f = t - i;
+        return stopps[i].map((c, k) => c + (stopps[i + 1][k] - c) * f);
+      };
+      for (const z of b.zeilen) for (let y = Math.floor(z.y * dpr); y < (z.y + z.h) * dpr; y += 2) {
+        for (let x = Math.floor(z.x * dpr); x < (z.x + z.w) * dpr; x += 2) {
+          const i = (y * bild.width + x) * bild.channels;
+          const px = [data[i], data[i + 1], data[i + 2]];
+          for (const f of [farbeBei(x, y)]) {
+            const k = kontrast(f, px);
+            if (!schlechtester || k < schlechtester) { schlechtester = k; wo = { x: x / dpr, y: y / dpr, px, f: f.map(Math.round) }; }
+          }
+        }
+      }
+      ergebnis[b.s] = Math.round(schlechtester * 100) / 100;
+      const soll = b.gross ? 3 : 4.5;
+      expect(schlechtester, `${b.s}: ${schlechtester.toFixed(2)} (Soll ${soll}) bei ${JSON.stringify(wo)}, Box ${JSON.stringify([b.x, b.y, b.w, b.h].map(Math.round))}`).toBeGreaterThanOrEqual(soll);
+    }
+    fs.appendFileSync(path.join(ERGEBNISSE, 'kontrast.jsonl'), `${JSON.stringify({ marke, variante, projekt: info.project.name, ergebnis })}\n`);
+    await bild_(page, `buehne-${marke}`, info);
+  });
+}
+
+async function bild_(page, name, info) {
+  await page.screenshot({ path: path.join(SCREENS, `${info.project.name}-${name}.png`) });
+}
+
+test('700 Fotos: Erstansicht lädt nur sichtbare Rasterbilder, kein Querscrollen, Blocksatz schließt bündig', async ({ page, request }, info) => {
+  test.skip(info.project.name === 'iphone-13', 'Rechner und Pixel reichen');
+  const geladen = new Set();
+  page.on('request', (r) => { if (/\/b\/[^/]+\/r\//.test(r.url())) geladen.add(new URL(r.url()).pathname); });
+  await mock(request, { anzahl: 700 });
+  await anmelden(page);
+  await page.waitForTimeout(1500);
+  const n = await page.locator('.kachel').count();
+  expect(n).toBe(700);
+  expect(geladen.size, `${geladen.size} Rasterbilder sofort geladen`).toBeLessThan(60);
+  // Jede volle Zeile endet bündig am rechten Rand
+  const raender = await page.evaluate(() => {
+    const raster = document.querySelector('.raster');
+    const rechts = raster.getBoundingClientRect().right;
+    const kacheln = [...raster.children];
+    const zeilen = new Map();
+    for (const k of kacheln.slice(0, 120)) {
+      const r = k.getBoundingClientRect();
+      const y = Math.round(r.top);
+      zeilen.set(y, Math.max(zeilen.get(y) || 0, r.right));
+    }
+    const enden = [...zeilen.values()].slice(0, -1);
+    return enden.map((x) => Math.round((rechts - x) * 10) / 10);
+  });
+  expect(Math.max(...raender.map(Math.abs)), `Abstand der Zeilenenden zum Rand: ${raender.join(', ')}`).toBeLessThanOrEqual(1);
+  await keinQuerscrollen(page);
+  fs.writeFileSync(path.join(ERGEBNISSE, `700-${info.project.name}.json`), JSON.stringify({ kacheln: n, sofortGeladen: geladen.size }, null, 1));
+  await mock(request, { anzahl: 40 });
+});
+
+test('Ohne Ablauf: kein Function-Aufruf für den Status, kein „online bis“', async ({ page, request }, info) => {
+  test.skip(!istDesktop(info), 'einmal reicht');
+  await mock(request, { variante: 'ohne-ablauf' });
+  let api = 0;
+  page.on('request', (r) => { if (r.url().endsWith('/api/status')) api += 1; });
+  await anmelden(page);
+  expect(api).toBe(0);
+  await expect(page.locator('#galerie-info')).toHaveText('40 Fotos · 3 Kapitel');
+});
+
+test('Marke agentur (Cormorant Garamond aus marken/schriften) lädt ohne Fehler', async ({ page, request }, info) => {
+  test.skip(!istDesktop(info), 'einmal reicht');
+  await mock(request, { marke: 'agentur' });
+  const befund = ueberwachen(page);
+  await anmelden(page);
+  await page.waitForTimeout(800);
+  const schrift = await page.locator('#galerie-titel').evaluate((t) => getComputedStyle(t).fontFamily);
+  expect(schrift).toContain('Cormorant Garamond');
+  expect(await page.evaluate(() => document.fonts.check('600 40px "Cormorant Garamond"'))).toBe(true);
+  await bild(page, 'marke-agentur', info);
+  sauber(befund);
 });

@@ -3,7 +3,7 @@ import { fotos } from './werkzeuge.js';
 
 const $ = (id) => document.getElementById(id);
 
-export function ansichtEinrichten({ bilder, kapitelTitel, istGewaehlt, umschalten, originalLaden, kachelFokus, handy = false, handyDateiLaden }) {
+export function ansichtEinrichten({ bilder, kapitelTitel, istGewaehlt, umschalten, originalLaden, kachelFokus, handy = false, touch = false, handyDateiLaden }) {
   const dialog = $('ansicht');
   const bild = $('ansicht-bild');
   const platz = $('ansicht-platz');
@@ -21,7 +21,9 @@ export function ansichtEinrichten({ bilder, kapitelTitel, istGewaehlt, umschalte
   let mitVerlauf = false;
   const vorgeladen = new Map();
   // Am Handy: "In Fotos sichern" (Handy-Fassung über das Teilen-Menü), am Rechner das Original.
-  const ORIGINAL = handy ? 'In Fotos sichern' : 'Original laden';
+  // Touch-Geräte ohne Teilen (Firefox Android, eingebettete App-Browser) laden das Original als Datei.
+  const ORIGINAL = handy ? 'In Fotos sichern' : (touch ? 'Foto laden' : 'Original laden');
+  const GELADEN = touch ? 'Foto geladen' : 'Original geladen';
   let sichern = null; // { b, datei, laden, abbruch }
 
   function vorladen(i) {
@@ -120,7 +122,9 @@ export function ansichtEinrichten({ bilder, kapitelTitel, istGewaehlt, umschalte
 
   async function teilen(b, datei) {
     try {
-      await navigator.share({ files: [datei] });
+      const daten = { files: [datei] };
+      if (navigator.canShare && !navigator.canShare(daten)) throw new Error('nicht-teilbar');
+      await navigator.share(daten);
       status.textContent = 'Foto weitergegeben.';
       original.textContent = ORIGINAL;
       sichernVerwerfen();
@@ -133,9 +137,16 @@ export function ansichtEinrichten({ bilder, kapitelTitel, istGewaehlt, umschalte
         original.textContent = 'Jetzt sichern';
         status.textContent = 'Nicht gesichert. Du kannst es noch einmal versuchen.';
       } else {
-        original.textContent = ORIGINAL;
-        status.textContent = 'Dein Gerät kann dieses Foto nicht direkt sichern.';
+        // Teilen nicht möglich (z. B. canShare sagt nein): das Foto als Datei laden statt hängen zu bleiben
         sichernVerwerfen();
+        original.textContent = ORIGINAL;
+        status.textContent = 'Dein Gerät kann dieses Foto nicht direkt sichern. Es wird stattdessen als Datei geladen.';
+        try {
+          await originalLaden(b, () => {});
+          status.textContent = 'Download gestartet, das Foto landet in deinen Downloads.';
+        } catch {
+          status.textContent = 'Das Foto konnte nicht geladen werden. Bitte versuch es noch einmal.';
+        }
       }
     }
   }
@@ -181,8 +192,8 @@ export function ansichtEinrichten({ bilder, kapitelTitel, istGewaehlt, umschalte
         if (bilder[index] === b) original.textContent = `Lädt ${Math.round(anteil * 100)} %`;
       });
       if (bilder[index] === b) {
-        original.textContent = 'Original geladen';
-        status.textContent = 'Original wurde gespeichert.';
+        original.textContent = GELADEN;
+        status.textContent = touch ? 'Download gestartet, das Foto landet in deinen Downloads.' : 'Original wurde gespeichert.';
       }
     } catch (e) {
       if (bilder[index] === b) {

@@ -4,8 +4,12 @@
 //   node tests/oberflaeche/mock-server.mjs [--port 8788] [--marke ambition] [--anzahl 40]
 //
 // Steuerung für Tests: POST /__mock {"zustand":"normal|leer|abgelaufen|fehler",
-//   "variante":"vertrag|ohne-hoehe|ohne-status", "marke":"ambition|blueprint", "reset":true}
+//   "variante":"vertrag|ohne-hoehe|ohne-status|ohne-ablauf|hell", "marke":"ambition|blueprint|neutral", "reset":true}
+// "neutral" ist eine helle Beispielmarke aus tests/oberflaeche/marken-test/ (prüft, dass die Oberfläche
+// mit jeder marke.json nach Schema funktioniert). "hell": das erste Foto ist reinweiß (Kontrast über dem Titelbild).
+// Ab 41 Bildern werden die 40 erzeugten Motive wiederverwendet (schnell, z. B. --anzahl 700).
 import http from 'node:http';
+import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -17,6 +21,12 @@ import { markeOeffentlich } from '../../bau/lib/marke.mjs';
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const WURZEL = path.resolve(HIER, '../..');
 const VORLAGE = path.join(WURZEL, 'vorlage');
+const TESTMARKEN = path.join(HIER, 'marken-test');
+
+function markenOrdner(id) {
+  const test = path.join(TESTMARKEN, id);
+  return fs.existsSync(path.join(test, 'marke.json')) ? test : path.join(WURZEL, 'marken', id);
+}
 
 const arg = (name, standard) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -28,7 +38,7 @@ export const CODE = 'GAST2345';
 const TEIL_GROESSE = 150_000; // im Mock klein, damit Originale aus mehreren Teilen bestehen
 const TOK = 'k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa';
 
-const einstellungen = { zustand: 'normal', variante: 'vertrag', marke: arg('marke', 'ambition') };
+const einstellungen = { zustand: 'normal', variante: 'vertrag', marke: arg('marke', 'ambition'), anzahl: ANZAHL };
 const fehlversuche = new Map();
 const dateien = new Map(); // Pfad -> { daten, typ }
 let bilder = [];
@@ -83,15 +93,38 @@ async function bildErzeugen(i) {
   return { w, h, o, r, g, hf, png: i === 5 };
 }
 
-async function bilderErzeugen() {
-  const liste = [];
-  for (let i = 0; i < ANZAHL; i += 1) {
+let weiss = null;
+async function weissesBild() {
+  if (!weiss) {
+    const w = 2400; const h = 1600;
+    const voll = await sharp({ create: { width: w, height: h, channels: 3, background: '#ffffff' } }).jpeg({ quality: 90 }).toBuffer();
+    weiss = {
+      r: await sharp(voll).resize(600).jpeg({ quality: 78 }).toBuffer(),
+      g: await sharp(voll).resize(1600).jpeg({ quality: 82 }).toBuffer(),
+    };
+  }
+  return weiss;
+}
+
+const motive = [];
+let pool = []; // alle je erzeugten Bilder; bilder = die ersten einstellungen.anzahl davon
+
+// Kapitel nach Anteil an der aktuellen Anzahl: 45 % / 30 % / 25 %
+function kapitelZuordnen() {
+  const n = einstellungen.anzahl;
+  bilder = pool.slice(0, n).map((b, i) => ({ ...b, kapitel: i < Math.ceil(n * 0.45) ? 0 : i < Math.ceil(n * 0.75) ? 1 : 2 }));
+}
+
+async function bilderErzeugen(bis = ANZAHL) {
+  const liste = pool;
+  for (let i = pool.length; i < bis; i += 1) {
     const id = zufallsId();
-    const e = await bildErzeugen(i);
+    if (i < 40) motive.push(await bildErzeugen(i));
+    const e = motive[i % 40];
     let name = `4S4A${String(1000 + i)}.jpg`;
     if (i === 3 || i === 20) name = 'IMG_0001.jpg'; // doppelter Name in zwei Kapiteln
     if (i === 21) name = 'img_0001.JPG'; // gleicher Name, andere Schreibung
-    if (e.png) name = 'Gruppenbild.png';
+    if (e.png && i < 40) name = 'Gruppenbild.png';
     const teile = [];
     for (let s = 0, n = 1; s < e.o.length; s += TEIL_GROESSE, n += 1) {
       const pfad = `/b/${TOK}/o/${id}.${n}`;
@@ -102,7 +135,6 @@ async function bilderErzeugen() {
     dateien.set(`/b/${TOK}/g/${id}.jpg`, { daten: e.g, typ: 'image/jpeg' });
     dateien.set(`/b/${TOK}/h/${id}.jpg`, { daten: e.hf, typ: 'image/jpeg' });
     liste.push({
-      kapitel: i < Math.ceil(ANZAHL * 0.45) ? 0 : i < Math.ceil(ANZAHL * 0.75) ? 1 : 2,
       id, name, w: e.w, hoehe: e.h,
       aufnahme: new Date(Date.UTC(2026, 9, 1, 9, i)).toISOString(),
       r: `/b/${TOK}/r/${id}.jpg`, g: `/b/${TOK}/g/${id}.jpg`,
@@ -110,8 +142,12 @@ async function bilderErzeugen() {
       o: { teile, bytes: e.o.length, md5: crypto.createHash('md5').update(e.o).digest('hex'), typ: e.png ? 'image/png' : 'image/jpeg' },
     });
   }
-  bilder = liste;
+  pool = liste;
+  kapitelZuordnen();
 }
+
+// Zähler je Pfad (ohne Query) für Tests: Wird ein schon geladenes Foto erneut geholt?
+const abrufe = new Map();
 
 function manifest() {
   const namen = ['Mittwoch · Tag', 'Mittwoch · Abend', 'Alle Fotos'];
@@ -129,7 +165,7 @@ function manifest() {
   return {
     galerie: 'test-galerie', marke: einstellungen.marke,
     titel: einstellungen.marke === 'blueprint' ? 'Blueprint Summit 2026' : 'AMBITION Circle 2026',
-    ablauf: '2027-01-03T23:59:59+01:00', erstellt: new Date().toISOString(),
+    ...(einstellungen.variante === 'ohne-ablauf' ? {} : { ablauf: '2027-01-03T23:59:59+01:00' }), erstellt: new Date().toISOString(),
     anzahl: leer ? 0 : bilder.length,
     bytesOriginale: leer ? 0 : bilder.reduce((s, b) => s + b.o.bytes, 0),
     kapitel,
@@ -143,8 +179,22 @@ function api(res, status, koerper, extra = {}) {
     res.end();
     return;
   }
-  res.writeHead(status, { ...kopf, 'Content-Type': 'application/json; charset=utf-8' });
-  res.end(JSON.stringify(koerper));
+  senden(res, status, { ...kopf, 'Content-Type': 'application/json; charset=utf-8' }, Buffer.from(JSON.stringify(koerper)));
+}
+
+// Wie Cloudflare: Text (HTML, CSS, JS, JSON) komprimiert ausliefern, wenn der Browser es kann.
+// Die Anfrage merkt sich der Server je Antwort (res.anfrage), Bilder bleiben unverändert.
+function senden(res, status, kopf, daten) {
+  const typ = String(kopf['Content-Type'] || '');
+  const kann = /\bbr\b/.test(res.anfrage?.headers['accept-encoding'] || '');
+  if (kann && /json|text|javascript/.test(typ) && daten.length > 1024) {
+    const z = zlib.brotliCompressSync(daten, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } });
+    res.writeHead(status, { ...kopf, 'Content-Encoding': 'br', Vary: 'Accept-Encoding' });
+    res.end(z);
+    return;
+  }
+  res.writeHead(status, kopf);
+  res.end(daten);
 }
 
 function koerperLesen(req) {
@@ -196,16 +246,27 @@ function statisch(res, datei, typ, extra = {}) {
       res.end('nicht gefunden');
       return;
     }
-    res.writeHead(200, { ...SICHERHEIT, 'Content-Type': typ || TYPEN[path.extname(datei)] || 'application/octet-stream', ...extra });
-    res.end(daten);
+    senden(res, 200, { ...SICHERHEIT, 'Content-Type': typ || TYPEN[path.extname(datei)] || 'application/octet-stream', ...extra }, daten);
   });
 }
 
 async function steuern(req, res) {
   const d = JSON.parse((await koerperLesen(req)) || '{}');
   for (const k of ['zustand', 'variante', 'marke']) if (d[k]) einstellungen[k] = d[k];
+  if (d.abrufe) {
+    api(res, 200, Object.fromEntries(abrufe));
+    return;
+  }
+  if (Number.isInteger(d.anzahl) && d.anzahl > 0 && d.anzahl <= 2000) {
+    einstellungen.anzahl = d.anzahl;
+    await bilderErzeugen(d.anzahl);
+    kapitelZuordnen();
+  }
   if (d.reset) {
     fehlversuche.clear();
+    abrufe.clear();
+    einstellungen.anzahl = ANZAHL;
+    kapitelZuordnen();
     Object.assign(einstellungen, { zustand: 'normal', variante: 'vertrag' });
   }
   api(res, 200, einstellungen);
@@ -214,26 +275,33 @@ async function steuern(req, res) {
 export async function mockStarten(port = PORT) {
   await bilderErzeugen();
   const server = http.createServer(async (req, res) => {
+    res.anfrage = req;
     const url = new URL(req.url, 'http://localhost');
     const pfad = decodeURIComponent(url.pathname);
     try {
       if (pfad === '/__mock' && req.method === 'POST') return steuern(req, res);
       if (pfad.startsWith('/api/')) return apiAntworten(req, res, pfad);
       if (pfad.startsWith('/b/')) {
-        const f = dateien.get(pfad);
+        abrufe.set(pfad, (abrufe.get(pfad) || 0) + 1);
+        let f = dateien.get(pfad);
+        if (f && einstellungen.variante === 'hell' && bilder[0] && (pfad === bilder[0].r || pfad === bilder[0].g)) {
+          const w = await weissesBild();
+          f = { daten: pfad === bilder[0].r ? w.r : w.g, typ: 'image/jpeg' };
+        }
         if (!f) { res.writeHead(404, SICHERHEIT); res.end(); return; }
         res.writeHead(200, { ...SICHERHEIT, 'Content-Type': f.typ, 'Content-Length': f.daten.length, 'Cache-Control': 'private, max-age=31536000, immutable' });
         res.end(f.daten);
         return;
       }
-      const marke = JSON.parse(fs.readFileSync(path.join(WURZEL, 'marken', einstellungen.marke, 'marke.json'), 'utf8'));
+      const ordner = markenOrdner(einstellungen.marke);
+      const marke = JSON.parse(fs.readFileSync(path.join(ordner, 'marke.json'), 'utf8'));
       if (pfad === '/status.json') {
         // Wie vom Bau geschrieben; "ohne-status" prüft den Rückfall auf /api/status
         if (einstellungen.variante === 'ohne-status') { res.writeHead(404, SICHERHEIT); res.end(); return; }
         const m = manifest();
         const ablauf = einstellungen.zustand === 'abgelaufen' ? '2026-01-01T00:00:00+01:00' : m.ablauf;
         res.writeHead(200, { ...SICHERHEIT, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ titel: m.titel, marke: m.marke, ablauf }));
+        res.end(JSON.stringify(einstellungen.variante === 'ohne-ablauf' ? { titel: m.titel, marke: m.marke } : { titel: m.titel, marke: m.marke, ablauf }));
         return;
       }
       if (pfad === '/assets/marke.json') {
@@ -247,7 +315,13 @@ export async function mockStarten(port = PORT) {
         return;
       }
       const markeDatei = markeDateien(marke).find(([, ziel]) => `/${ziel}` === pfad);
-      if (markeDatei) return statisch(res, path.join(WURZEL, 'marken', marke.id, markeDatei[0]));
+      if (markeDatei) return statisch(res, path.join(ordner, markeDatei[0]));
+      // Wie der Bau: Bilddateien des Markenordners unter /assets/marke/ (Hintergründe)
+      if (pfad.startsWith('/assets/marke/')) {
+        const name = pfad.slice('/assets/marke/'.length);
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) { res.writeHead(404, SICHERHEIT); res.end(); return; }
+        return statisch(res, path.join(ordner, name), name.endsWith('.webp') ? 'image/webp' : undefined);
+      }
       if (pfad === '/' || pfad === '/index.html') return statisch(res, path.join(VORLAGE, 'index.html'));
       if (pfad === '/sw.js') return statisch(res, path.join(VORLAGE, 'sw.js'));
       if (pfad.startsWith('/assets/')) {

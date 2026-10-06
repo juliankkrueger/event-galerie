@@ -15,16 +15,38 @@
 <link rel="stylesheet" href="/assets/marke.css">
 <link rel="stylesheet" href="/assets/app.css">
 <link rel="modulepreload" href="/assets/werkzeuge.js">
+<link rel="modulepreload" href="/assets/sichern.js">
+<link rel="modulepreload" href="/assets/ansicht.js">
 <script type="module" src="/assets/app.js"></script>
 </head>
 <body>
 <a class="sprunglink" href="#inhalt">Zum Inhalt springen</a>
+
+<!-- Bühnenbild hinter Kopf und Galerie-Kopf: Marken-Hintergrund (--hintergrund-kopf) oder, ohne ihn,
+     das erste Foto der Galerie, stark abgedunkelt. Rein dekorativ. -->
+<div id="buehnenbild" class="buehnenbild" aria-hidden="true">
+  <img id="titelbild" class="titelbild" alt="" decoding="async" hidden>
+</div>
 
 <header class="kopf">
   <img class="kopf-logo" src="/assets/logo.png" alt="" width="800" height="190">
 </header>
 
 <main id="inhalt" tabindex="-1">
+
+  <aside id="app-hinweis" class="app-hinweis" aria-labelledby="app-hinweis-titel" hidden>
+    <h2 id="app-hinweis-titel" class="app-hinweis-titel">Öffne die Galerie in deinem Browser</h2>
+    <p id="app-hinweis-text" class="app-hinweis-text"></p>
+    <p id="app-hinweis-code" class="app-hinweis-code" hidden></p>
+    <div class="app-hinweis-knoepfe">
+      <a id="app-hinweis-oeffnen" class="knopf knopf-primaer knopf-klein" href="/" hidden>Im Browser öffnen</a>
+      <button id="app-hinweis-kopieren" class="knopf knopf-leise knopf-klein" type="button">Link kopieren</button>
+    </div>
+    <label class="app-hinweis-feld" for="app-hinweis-link" hidden>Link zur Galerie
+      <input id="app-hinweis-link" type="text" readonly>
+    </label>
+    <p id="app-hinweis-status" class="app-hinweis-status" role="status"></p>
+  </aside>
 
   <section id="z-laedt" class="zustand" aria-labelledby="laedt-text">
     <div class="lader" aria-hidden="true"></div>
@@ -53,7 +75,8 @@
   </section>
 
   <div id="galerie" hidden>
-    <div class="galerie-kopf">
+    <div id="galerie-kopf" class="galerie-kopf">
+      <p class="galerie-oberzeile">Fotogalerie</p>
       <h1 id="galerie-titel" class="titel galerie-titel" tabindex="-1"></h1>
       <p id="galerie-info" class="galerie-info"></p>
       <div class="galerie-werkzeuge">

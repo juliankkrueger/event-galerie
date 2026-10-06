@@ -3,8 +3,92 @@
 export const ZIP_MAX_BILDER = 200;
 export const ZIP_MAX_BYTES = 2_000_000_000; // Teil-ZIPs bis ca. 2 GB
 export const ZIP_MAX_BYTES_SPEICHER = 500_000_000; // Blob-Weg: alles liegt im Arbeitsspeicher
+export const ZIP_MAX_BYTES_SPEICHER_HANDY = 250_000_000; // Handy und Tablet haben weniger Speicher je Tab
 export const PAKET_MAX_DATEIEN = 10;
 export const PAKET_MAX_BYTES = 45_000_000; // strikt darunter
+// Wartezeiten vor den drei Wiederholungen eines Abrufs (ms), dazu ±20 % Streuung
+export const WIEDERHOLUNGEN = [700, 2000, 5000];
+
+// ---------- Umgebung ----------
+
+// Bekannte Apps mit eingebautem Browser. Der User-Agent ist hier nur ein Hinweis: Den Hinweis
+// "Im Browser öffnen" zeigt die Seite erst, wenn zusätzlich der Feature-Test sagt, dass das
+// Gerät keine Dateien teilen kann (siehe umgebungBewerten).
+const IN_APP = [
+  [/Instagram/i, 'Instagram'],
+  [/FBAN|FBAV|FB_IAB|FBIOS|FB4A|FBDV/, 'Facebook'],
+  [/Messenger/i, 'Messenger'],
+  [/WhatsApp/i, 'WhatsApp'],
+  [/LinkedInApp/i, 'LinkedIn'],
+  [/Snapchat/i, 'Snapchat'],
+  [/musical_ly|BytedanceWebview|TikTok/i, 'TikTok'],
+  [/Pinterest/i, 'Pinterest'],
+  [/\bLine\//, 'LINE'],
+  [/XING/i, 'XING'],
+];
+
+export function plattform(ua, { touchPunkte = 0 } = {}) {
+  const s = String(ua || '');
+  if (/Android/i.test(s)) return 'android';
+  if (/iPhone|iPad|iPod/.test(s)) return 'ios';
+  // iPadOS gibt sich als Mac aus; Touchpunkte verraten das Tablet
+  if (/Macintosh/.test(s) && touchPunkte > 1) return 'ios';
+  return 'andere';
+}
+
+// Name der App, deren eingebauter Browser die Seite zeigt, sonst null.
+export function inAppName(ua, { touchPunkte = 0 } = {}) {
+  const s = String(ua || '');
+  for (const [muster, name] of IN_APP) if (muster.test(s)) return name;
+  const p = plattform(s, { touchPunkte });
+  // Android WebView: "; wv)" im User-Agent
+  if (p === 'android' && /;\s*wv\)/.test(s)) return 'App';
+  // iOS WKWebView ohne "Safari/": eingebettete Ansicht einer App (Safari, Chrome, Firefox tragen es)
+  if (p === 'ios' && /AppleWebKit/.test(s) && !/Safari\//.test(s)) return 'App';
+  return null;
+}
+
+// Fasst Feature-Tests und den User-Agent-Hinweis zusammen.
+//   teilenDateien: navigator.canShare({files}) ist wahr
+//   touch: (hover: none) and (pointer: coarse)
+// Ergebnis: weg 'teilen' (Handy-Pakete) oder 'zip'; hinweisApp: App-Name, wenn "Im Browser öffnen"
+// angezeigt werden soll (nur wenn Teilen fehlt, denn sonst klappt das Sichern auch in der App).
+export function umgebungBewerten({ ua, teilenDateien = false, touch = false, touchPunkte = 0 }) {
+  const p = plattform(ua, { touchPunkte });
+  const app = inAppName(ua, { touchPunkte });
+  const weg = teilenDateien && touch ? 'teilen' : 'zip';
+  return {
+    plattform: p,
+    weg,
+    touch: Boolean(touch),
+    inApp: app,
+    hinweisApp: app && weg !== 'teilen' ? app : null,
+  };
+}
+
+// Android: Seite im Standardbrowser öffnen (Intent ohne festes Paket, das System wählt den Browser).
+// Der Code steht nie darin, ein Fragment kann ein Intent-Link nicht weitergeben.
+export function intentAdresse(href) {
+  try {
+    const u = new URL(href);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    return `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${u.protocol.slice(0, -1)};action=android.intent.action.VIEW;end`;
+  } catch {
+    return null;
+  }
+}
+
+// Link zum Kopieren: mit Code, wenn er in dieser Seitenansicht eingegeben oder mitgebracht wurde.
+export function galerieLink(origin, code) {
+  const basis = `${String(origin || '').replace(/\/+$/, '')}/`;
+  return code && codeFormGueltig(code) ? `${basis}#c=${code}` : basis;
+}
+
+// Streuung der Wartezeit, damit viele Geräte nach einer Störung nicht im Gleichtakt anfragen
+export function wartezeit(versuch, zufall = Math.random) {
+  const basis = WIEDERHOLUNGEN[Math.min(versuch, WIEDERHOLUNGEN.length - 1)];
+  return Math.round(basis * (0.8 + zufall() * 0.4));
+}
 
 const CODE_ALPHABET = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
 
@@ -133,6 +217,38 @@ export function endungTauschen(name, neu) {
   const punkt = name.lastIndexOf('.');
   const stamm = punkt > 0 ? name.slice(0, punkt) : name;
   return `${stamm}${neu}`;
+}
+
+// Teilt die Fotos eines Rasters in Zeilen: Wird eine Zeile zu breit, entscheidet die Abweichung von der
+// Zielhöhe, ob das nächste Foto noch hineingestaucht oder die Zeile ohne es gestreckt wird. Die letzte
+// Zeile wird nur gestreckt, wenn sie fast voll ist. Ergebnis: [start, ende, summeV, letzte]
+export function zeilenBilden(vs, breite, luecke, hoehe) {
+  const zeilen = [];
+  let start = 0;
+  let summe = 0;
+  for (let i = 0; i < vs.length; i += 1) {
+    summe += vs[i];
+    const n = i - start + 1;
+    if (summe * hoehe + luecke * (n - 1) < breite) continue;
+    const mit = (breite - luecke * (n - 1)) / (summe * hoehe);
+    const ohne = n > 1 ? (breite - luecke * (n - 2)) / ((summe - vs[i]) * hoehe) : Infinity;
+    if (n > 1 && Math.abs(Math.log(ohne)) < Math.abs(Math.log(mit))) {
+      zeilen.push([start, i - 1, summe - vs[i], false]);
+      start = i;
+      summe = vs[i];
+      if (summe * hoehe >= breite) {
+        zeilen.push([i, i, summe, false]);
+        start = i + 1;
+        summe = 0;
+      }
+    } else {
+      zeilen.push([start, i, summe, false]);
+      start = i + 1;
+      summe = 0;
+    }
+  }
+  if (start < vs.length) zeilen.push([start, vs.length - 1, summe, true]);
+  return zeilen;
 }
 
 // Teilt die Auswahl in ZIP-Teile: höchstens 200 Bilder und höchstens maxBytes je Teil.
