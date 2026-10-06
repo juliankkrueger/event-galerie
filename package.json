@@ -1,0 +1,24 @@
+{
+  "name": "event-galerie",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Baukette und Function der Event-Galerie der Agentur Krüger",
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "bauen": "node bau/bau.mjs",
+    "offline": "node bau/offline.mjs",
+    "code": "node bau/code-hash.mjs",
+    "test": "node --test --test-concurrency=1 tests/bau/*.test.mjs"
+  },
+  "dependencies": {
+    "google-auth-library": "^10.9.1",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "wrangler": "4.127.1"
+  }
+}

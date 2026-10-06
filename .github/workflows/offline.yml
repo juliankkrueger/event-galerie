@@ -1,0 +1,153 @@
+# Nimmt die Galerie einer Marke vom Netz: deployt die Seite "Keine Galerie online"
+# und löscht danach alle älteren Deployments des Projekts. Vertrag: VERTRAG.md
+#
+# Abgeschaltet wird nur, wenn das Produktions-Deployment genau diese galerie_id
+# trägt (Commit-Nachricht "galerie <id>" aus bauen.yml). Je Marke gibt es EIN
+# Pages-Projekt; zeigt es die Galerie eines anderen Events, bleibt die online
+# und der Lauf endet erfolgreich ohne Änderung. Ist die Zuordnung unklar, bricht
+# er ab und schaltet nichts ab.
+#
+# Das Repo ist öffentlich: Log und Zusammenfassung nennen nur den Status.
+name: offline
+run-name: offline ${{ inputs.galerie_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      galerie_id:
+        description: Galerie-ID aus dem Krüger OS
+        required: true
+        type: string
+      marke:
+        description: Marke (Ordner unter marken/)
+        required: true
+        type: string
+
+# Keine Rechte auf Workflow-Ebene, nur im Job.
+permissions: {}
+
+concurrency:
+  group: pages-${{ inputs.marke }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  offline:
+    name: Galerie offline nehmen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Checkout, sonst nichts (kein id-token)
+    timeout-minutes: 30
+    env:
+      GALERIE_ID: ${{ inputs.galerie_id }}
+      MARKE: ${{ inputs.marke }}
+      WRANGLER_SEND_METRICS: "false"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Auslöser prüfen
+        # Nur von Hand bzw. vom OS gestartet, nur auf main, nur durch den Inhaber des Repos.
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          AKTEUR: ${{ github.actor }}
+          AUSLOESER: ${{ github.triggering_actor }}
+          INHABER: ${{ github.repository_owner }}
+        run: |
+          if [[ "$EREIGNIS" != workflow_dispatch || "$REF" != refs/heads/main || "$AKTEUR" != "$INHABER" || "$AUSLOESER" != "$INHABER" ]]; then
+            echo "::error::Nur workflow_dispatch auf main durch den Inhaber des Repos"
+            exit 1
+          fi
+
+      - name: Eingaben prüfen
+        run: |
+          fehler=0
+          re_galerie='^[A-Za-z0-9_-]{1,64}$'
+          re_marke='^[a-z0-9][a-z0-9-]{0,39}$'
+          [[ "$GALERIE_ID" =~ $re_galerie ]] || { echo "::error::galerie_id ungültig"; fehler=1; }
+          [[ "$MARKE" =~ $re_marke ]] || { echo "::error::marke ungültig"; fehler=1; }
+          exit $fehler
+
+      - name: Speicher
+        run: df -h /
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Marke lesen
+        run: |
+          datei="marken/$MARKE/marke.json"
+          [[ -f "$datei" ]] || { echo "::error::Marke $MARKE fehlt"; exit 1; }
+          projekt="$(jq -r '.pagesProjekt' "$datei")"
+          domain="$(jq -r '.domain' "$datei")"
+          [[ "$projekt" =~ ^[a-z0-9][a-z0-9-]{0,57}$ ]] || { echo "::error::pagesProjekt ungültig"; exit 1; }
+          [[ "$domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::domain ungültig"; exit 1; }
+          echo "PAGES_PROJEKT=$projekt" >> "$GITHUB_ENV"
+          echo "DOMAIN=$domain" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten
+        # wrangler fest aus package-lock.json, nie per npx mit Versionsbereich (wandert mit jeder Veröffentlichung)
+        run: npm ci --no-audit --no-fund --ignore-scripts
+
+      - name: Zuordnung prüfen
+        id: projekt
+        run: |
+          set +e
+          grund="$(node bau/pages.mjs galerie-pruefen --projekt "$PAGES_PROJEKT" --galerie "$GALERIE_ID" 2>&1)"
+          rc=$?
+          set -e
+          echo "$grund"
+          if [[ $rc -eq 0 ]]; then echo "da=ja" >> "$GITHUB_OUTPUT"
+          elif [[ $rc -eq 4 ]]; then echo "da=nein" >> "$GITHUB_OUTPUT"
+          else echo "::error::$grund"; exit 1; fi
+
+      - name: Offline-Seite bauen
+        if: steps.projekt.outputs.da == 'ja'
+        run: node bau/offline.mjs --marke "$MARKE" --aus dist-offline
+
+      - name: Offline-Seite deployen
+        if: steps.projekt.outputs.da == 'ja'
+        # Aus dist-offline heraus: dort gibt es keinen Ordner functions, also keine Function.
+        working-directory: dist-offline
+        run: |
+          set -o pipefail
+          ../node_modules/.bin/wrangler pages deploy . \
+            --project-name "$PAGES_PROJEKT" \
+            --branch main \
+            --commit-dirty=true \
+            --commit-message "offline $GALERIE_ID" 2>&1 \
+            | sed -E "s#https://[a-z0-9-]+\.${PAGES_PROJEKT}\.pages\.dev#https://<hash>.${PAGES_PROJEKT}.pages.dev#g"
+
+      - name: Ältere Deployments löschen
+        # Auch wenn eine andere Galerie in Produktion ist (da=nein): Diese Galerie kann noch unter
+        # einer Hash-Adresse stehen, wenn sie ersetzt, aber nie offline genommen wurde. Gelöscht
+        # wird alles außer dem Produktions- und dem neuesten Deployment. Bei unklarer Zuordnung
+        # bricht der Lauf vorher ab und löscht nichts.
+        if: steps.projekt.outputs.da == 'ja' || steps.projekt.outputs.da == 'nein'
+        run: node bau/pages.mjs alte-deployments-loeschen --projekt "$PAGES_PROJEKT" --falls-vorhanden
+
+      - name: Zusammenfassung
+        # Öffentlich lesbar: nur der Status.
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+          DA: ${{ steps.projekt.outputs.da }}
+        run: |
+          {
+            echo "## Offline"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            if [[ "$STATUS" != success ]]; then echo "| Status | fehlgeschlagen, nichts sicher abgeschaltet |"
+            elif [[ "${DA:-}" == ja ]]; then echo "| Status | abgeschaltet |"
+            else echo "| Status | nichts abgeschaltet, diese Galerie war nicht online |"; fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark">
+<title>Fotogalerie</title>
+<!-- Favicons und Logo kopiert der Bau aus marken/<id>/ (siehe marken/README.md) -->
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/marke.css">
+<link rel="stylesheet" href="/assets/app.css">
+<link rel="modulepreload" href="/assets/werkzeuge.js">
+<script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+<a class="sprunglink" href="#inhalt">Zum Inhalt springen</a>
+
+<header class="kopf">
+  <img class="kopf-logo" src="/assets/logo.png" alt="" width="800" height="190">
+</header>
+
+<main id="inhalt" tabindex="-1">
+
+  <section id="z-laedt" class="zustand" aria-labelledby="laedt-text">
+    <div class="lader" aria-hidden="true"></div>
+    <p id="laedt-text" class="zustand-text" role="status">Galerie wird geladen</p>
+  </section>
+
+  <section id="z-code" class="zustand" aria-labelledby="code-titel" hidden>
+    <h1 id="code-titel" class="titel zustand-titel">Fotogalerie</h1>
+    <p class="zustand-text">Gib den Zugangscode ein, den du mit dem Link zur Galerie bekommen hast.</p>
+    <form id="code-form" class="code-form" novalidate>
+      <label for="code-feld" class="code-label">Zugangscode</label>
+      <input id="code-feld" class="code-feld" name="code" type="text" inputmode="text" autocomplete="off"
+             autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="16"
+             aria-describedby="code-meldung" required>
+      <button id="code-knopf" class="knopf knopf-primaer" type="submit">Galerie öffnen</button>
+      <p id="code-meldung" class="code-meldung" role="alert" aria-live="assertive"></p>
+      <p id="code-uhr" class="code-uhr" hidden></p>
+    </form>
+  </section>
+
+  <section id="z-meldung" class="zustand" aria-labelledby="meldung-titel" hidden>
+    <h1 id="meldung-titel" class="titel zustand-titel" tabindex="-1"></h1>
+    <p id="meldung-text" class="zustand-text"></p>
+    <button id="meldung-knopf" class="knopf knopf-primaer" type="button" hidden>Erneut versuchen</button>
+    <a id="meldung-link" class="knopf knopf-leise" href="/" hidden>Zur Event-Seite</a>
+  </section>
+
+  <div id="galerie" hidden>
+    <div class="galerie-kopf">
+      <h1 id="galerie-titel" class="titel galerie-titel" tabindex="-1"></h1>
+      <p id="galerie-info" class="galerie-info"></p>
+      <div class="galerie-werkzeuge">
+        <button id="alle-knopf" class="knopf knopf-leise" type="button">Alle auswählen</button>
+        <p class="galerie-tipp" id="galerie-tipp">Klick auf den Kreis oben rechts, um ein Foto auszuwählen.</p>
+      </div>
+    </div>
+    <div id="leiste" class="leiste" role="region" aria-label="Auswahl" hidden>
+      <div id="panel" class="panel" hidden>
+        <div class="panel-kopf">
+          <h2 id="panel-titel" class="panel-titel"></h2>
+          <button id="panel-zu" class="knopf-symbol" type="button" aria-label="Fenster schließen">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <p id="panel-text" class="panel-text"></p>
+        <progress id="panel-fortschritt" class="fortschritt" max="100" value="0" hidden></progress>
+        <ul id="panel-liste" class="panel-liste"></ul>
+        <div class="panel-knoepfe">
+          <button id="panel-aktion" class="knopf knopf-primaer" type="button" hidden></button>
+          <button id="panel-abbrechen" class="knopf knopf-leise" type="button" hidden>Abbrechen</button>
+        </div>
+        <button id="zip-neben" class="leiste-nebenlink" type="button" hidden>Originale stattdessen als ZIP laden</button>
+      </div>
+      <div class="leiste-zeile">
+        <p id="zaehler" class="zaehler"></p>
+        <div class="leiste-knoepfe">
+          <button id="aufheben-knopf" class="knopf knopf-leise knopf-aufheben" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            <span class="knopf-text">Auswahl aufheben</span>
+          </button>
+          <button id="aktion-knopf" class="knopf knopf-primaer" type="button" aria-label="Als ZIP laden"><span class="text-lang">Als ZIP laden</span><span class="text-kurz" aria-hidden="true">ZIP laden</span></button>
+        </div>
+      </div>
+    </div>
+    <nav id="kapitelleiste" class="kapitelleiste" aria-label="Kapitel" hidden>
+      <ul id="kapitelliste" class="kapitelliste"></ul>
+    </nav>
+    <div id="kapitel"></div>
+  </div>
+</main>
+
+<footer class="fuss">
+  <nav class="fuss-links" aria-label="Rechtliches">
+    <a id="link-impressum" href="https://agenturkrueger-digital.de/impressum/" rel="noopener">Impressum</a>
+    <a id="link-datenschutz" href="https://agenturkrueger-digital.de/datenschutz/" rel="noopener">Datenschutz</a>
+    <a id="link-event" href="/" rel="noopener" hidden>Zur Event-Seite</a>
+  </nav>
+  <p class="fuss-hinweis">Diese Galerie setzt nur ein technisch notwendiges Cookie für deinen Zugang (30 Tage). Keine Analyse, keine Werbung, keine Drittanbieter.</p>
+</footer>
+
+<p id="ansage" class="nur-vorlesen" aria-live="polite" aria-atomic="true"></p>
+
+<dialog id="ansicht" class="ansicht" aria-labelledby="ansicht-titel">
+  <div class="ansicht-kopf">
+    <p id="ansicht-titel" class="ansicht-titel"><span id="ansicht-pos"></span><span id="ansicht-kapitel" class="ansicht-kapitel"></span></p>
+    <div class="ansicht-knoepfe">
+      <button id="ansicht-wahl" class="knopf knopf-leise knopf-klein" type="button" aria-pressed="false">
+        <svg class="haken" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        <span id="ansicht-wahl-text">Auswählen</span>
+      </button>
+      <button id="ansicht-original" class="knopf knopf-leise knopf-klein" type="button">Original laden</button>
+      <button id="ansicht-zu" class="knopf-symbol" type="button" aria-label="Großansicht schließen">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="buehne" class="buehne">
+    <img id="ansicht-platz" class="buehne-bild buehne-platz" alt="">
+    <img id="ansicht-bild" class="buehne-bild" alt="">
+  </div>
+  <button id="ansicht-zurueck" class="ansicht-pfeil ansicht-pfeil-links" type="button" aria-label="Vorheriges Foto">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7"/></svg>
+  </button>
+  <button id="ansicht-vor" class="ansicht-pfeil ansicht-pfeil-rechts" type="button" aria-label="Nächstes Foto">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7"/></svg>
+  </button>
+  <p id="ansicht-status" class="nur-vorlesen" aria-live="polite"></p>
+</dialog>
+</body>
+</html>

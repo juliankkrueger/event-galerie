@@ -1,0 +1,194 @@
+{
+ "galerie": "test-galerie",
+ "marke": "ambition",
+ "titel": "AMBITION Circle 2026",
+ "ablauf": "2027-01-03T23:59:59+01:00",
+ "erstellt": "2026-10-05T12:00:00+02:00",
+ "anzahl": 6,
+ "bytesOriginale": 6648048,
+ "kapitel": [
+  {
+   "titel": "Mittwoch · Tag",
+   "bilder": [
+    {
+     "id": "652acd50ecdacbd8",
+     "name": "4S4A1000.jpg",
+     "w": 2400,
+     "hoehe": 1600,
+     "aufnahme": "2026-10-01T09:00:00.000Z",
+     "r": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/r/652acd50ecdacbd8.jpg",
+     "g": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/g/652acd50ecdacbd8.jpg",
+     "h": {
+      "pfad": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/h/652acd50ecdacbd8.jpg",
+      "bytes": 1349780
+     },
+     "o": {
+      "teile": [
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.1",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.2",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.3",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.4",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.5",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.6",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.7",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.8",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.9",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.10",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.11",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/652acd50ecdacbd8.12"
+      ],
+      "bytes": 1743442,
+      "md5": "bf07ae182d3fc4020edb637ae288c474",
+      "typ": "image/jpeg"
+     }
+    },
+    {
+     "id": "6b0c814575f79a33",
+     "name": "4S4A1001.jpg",
+     "w": 1600,
+     "hoehe": 2400,
+     "aufnahme": "2026-10-01T09:01:00.000Z",
+     "r": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/r/6b0c814575f79a33.jpg",
+     "g": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/g/6b0c814575f79a33.jpg",
+     "h": {
+      "pfad": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/h/6b0c814575f79a33.jpg",
+      "bytes": 45478
+     },
+     "o": {
+      "teile": [
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/6b0c814575f79a33.1"
+      ],
+      "bytes": 56912,
+      "md5": "c4a4a8d92a247fff8bc3f08b47c04af4",
+      "typ": "image/jpeg"
+     }
+    }
+   ]
+  },
+  {
+   "titel": "Mittwoch · Abend",
+   "bilder": [
+    {
+     "id": "db49edb538678267",
+     "name": "4S4A1018.jpg",
+     "w": 2400,
+     "hoehe": 2400,
+     "aufnahme": "2026-10-01T09:18:00.000Z",
+     "r": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/r/db49edb538678267.jpg",
+     "g": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/g/db49edb538678267.jpg",
+     "h": {
+      "pfad": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/h/db49edb538678267.jpg",
+      "bytes": 2195552
+     },
+     "o": {
+      "teile": [
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.1",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.2",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.3",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.4",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.5",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.6",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.7",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.8",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.9",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.10",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.11",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.12",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.13",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.14",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.15",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.16",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.17",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.18",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.19",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/db49edb538678267.20"
+      ],
+      "bytes": 2868064,
+      "md5": "467391b26c4c33236e14e296c0c9aba8",
+      "typ": "image/jpeg"
+     }
+    },
+    {
+     "id": "a67ae2ef3313f426",
+     "name": "4S4A1019.jpg",
+     "w": 2400,
+     "hoehe": 1350,
+     "aufnahme": "2026-10-01T09:19:00.000Z",
+     "r": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/r/a67ae2ef3313f426.jpg",
+     "g": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/g/a67ae2ef3313f426.jpg",
+     "h": {
+      "pfad": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/h/a67ae2ef3313f426.jpg",
+      "bytes": 43298
+     },
+     "o": {
+      "teile": [
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/a67ae2ef3313f426.1"
+      ],
+      "bytes": 52170,
+      "md5": "c233b18db97d88a68faf448df8eeccc9",
+      "typ": "image/jpeg"
+     }
+    }
+   ]
+  },
+  {
+   "titel": "Alle Fotos",
+   "bilder": [
+    {
+     "id": "67242590595544d3",
+     "name": "4S4A1030.jpg",
+     "w": 2400,
+     "hoehe": 1600,
+     "aufnahme": "2026-10-01T09:30:00.000Z",
+     "r": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/r/67242590595544d3.jpg",
+     "g": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/g/67242590595544d3.jpg",
+     "h": {
+      "pfad": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/h/67242590595544d3.jpg",
+      "bytes": 1418202
+     },
+     "o": {
+      "teile": [
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.1",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.2",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.3",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.4",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.5",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.6",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.7",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.8",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.9",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.10",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.11",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.12",
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/67242590595544d3.13"
+      ],
+      "bytes": 1852448,
+      "md5": "82ff39ae795ef32e1cb79eddbe56ad8d",
+      "typ": "image/jpeg"
+     }
+    },
+    {
+     "id": "c5690da78c82651a",
+     "name": "4S4A1031.jpg",
+     "w": 1600,
+     "hoehe": 2400,
+     "aufnahme": "2026-10-01T09:31:00.000Z",
+     "r": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/r/c5690da78c82651a.jpg",
+     "g": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/g/c5690da78c82651a.jpg",
+     "h": {
+      "pfad": "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/h/c5690da78c82651a.jpg",
+      "bytes": 57627
+     },
+     "o": {
+      "teile": [
+       "/b/k7m2q9x4w8r3t6y1z5c0v2b8n4m6p1qa/o/c5690da78c82651a.1"
+      ],
+      "bytes": 75012,
+      "md5": "52922106711d150ac59e8b80d46d9e2c",
+      "typ": "image/jpeg"
+     }
+    }
+   ]
+  }
+ ]
+}

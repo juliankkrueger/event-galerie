@@ -1,0 +1,15 @@
+{
+  "name": "event-galerie-oberflaeche-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "mock": "node mock-server.mjs",
+    "test": "node --test werkzeuge.test.mjs && playwright test",
+    "integration": "node integration.mjs blueprint && node integration.mjs ambition"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "axe-core": "^4.10.0",
+    "sharp": "^0.34.5"
+  }
+}

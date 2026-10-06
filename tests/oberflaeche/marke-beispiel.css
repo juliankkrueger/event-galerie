@@ -1,0 +1,15 @@
+/* erzeugt aus marken/ambition/marke.json */
+:root {
+  --grund: #0E2B2E;
+  --flaeche: #1D373B;
+  --text: #EDE7D7;
+  --text-leise: #C9BFAE;
+  --akzent: #C69C7B;
+  --akzent-text: #0E2B2E;
+  --rahmen: #244A57;
+  --schrift-titel: "Italiana", "Didot", Georgia, serif;
+  --schrift-text: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --titel-gewicht: 400;
+  --titel-faktor: 1.18;
+  --titel-laufweite: 0.02em;
+}

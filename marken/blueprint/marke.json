@@ -1,0 +1,9 @@
+{ "id": "blueprint", "name": "Blueprint Summit", "eventSeite": "https://blueprint-summit.de",
+  "domain": "fotos.blueprint-summit.de", "pagesProjekt": "fotos-blueprint-summit",
+  "farben": { "grund": "#072330", "flaeche": "#0C2F3F", "text": "#F2F8F9", "textLeise": "#A9C2CA",
+              "akzent": "#02D2C7", "akzentText": "#072330", "rahmen": "#1C4A5C" },
+  "schriften": { "titel": "Unbounded", "text": "system-ui" },
+  "stil": { "knopfEcken": "eckig", "knopfVersal": true, "knopfLaufweite": "1px", "knopfGewicht": 600,
+            "titelVersal": true, "titelGewicht": 200 },
+  "logo": "logo.png", "favicon": { "ico": "favicon.ico", "png32": "favicon-32.png", "png192": "favicon-192.png", "apple": "apple-touch-icon.png" },
+  "impressum": "https://agenturkrueger-digital.de/impressum/", "datenschutz": "https://agenturkrueger-digital.de/datenschutz/" }

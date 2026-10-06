@@ -1,0 +1,316 @@
+# Baut eine Galerie aus einem Drive-Ordner und deployt sie auf das Pages-Projekt der Marke.
+# Ausgelöst vom Krüger OS (workflow_dispatch). Vertrag: VERTRAG.md
+#
+# Das Repo ist öffentlich, Logs, Zusammenfassung und Artefakte also auch. Darum: Code-Hash
+# kommt verschlüsselt (code_hash_enc), der Bericht geht verschlüsselt hinaus (bericht.enc),
+# Log und Zusammenfassung nennen nur Status und Anzahlen. dist/ wird nie hochgeladen.
+name: bauen
+run-name: bauen ${{ inputs.galerie_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      galerie_id:
+        description: Galerie-ID aus dem Krüger OS
+        required: true
+        type: string
+      marke:
+        description: Marke (Ordner unter marken/)
+        required: true
+        type: string
+      titel:
+        description: Titel der Galerie
+        required: true
+        type: string
+      ordner_id:
+        description: Drive-Ordner des Events
+        required: true
+        type: string
+      ablauf:
+        description: Ablauf, ISO mit Zeitzone
+        required: true
+        type: string
+      code_hash_enc:
+        description: pbkdf2-Hash des Zugangscodes, verschlüsselt (v1.<iv>.<ct>.<tag>)
+        required: true
+        type: string
+
+# Keine Rechte auf Workflow-Ebene, nur im Job.
+permissions: {}
+
+concurrency:
+  group: pages-${{ inputs.marke }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  bauen:
+    name: Galerie bauen und deployen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Checkout
+      id-token: write # OIDC-Token für Google (Workload Identity Federation), sonst nichts
+    timeout-minutes: 180
+    env:
+      # Eingaben nur über die Umgebung, nie direkt in run-Zeilen (Script-Injection).
+      GALERIE_ID: ${{ inputs.galerie_id }}
+      MARKE: ${{ inputs.marke }}
+      TITEL: ${{ inputs.titel }}
+      ABLAUF: ${{ inputs.ablauf }}
+      # code_hash_enc und ordner_id stehen bewusst NICHT hier: GitHub zeigt den env-Block im
+      # Log jedes Schritts, und eine Maske wirkt erst auf spätere Ausgaben. Beide liest ein
+      # Schritt aus dem Ereignis ($GITHUB_EVENT_PATH) und maskiert sie.
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - name: Auslöser prüfen
+        # Nur von Hand bzw. vom OS gestartet, nur auf main, nur durch den Inhaber des Repos.
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          AKTEUR: ${{ github.actor }}
+          AUSLOESER: ${{ github.triggering_actor }}
+          INHABER: ${{ github.repository_owner }}
+        run: |
+          if [[ "$EREIGNIS" != workflow_dispatch || "$REF" != refs/heads/main || "$AKTEUR" != "$INHABER" || "$AUSLOESER" != "$INHABER" ]]; then
+            echo "::error::Nur workflow_dispatch auf main durch den Inhaber des Repos"
+            exit 1
+          fi
+
+      - name: Eingaben prüfen
+        run: |
+          fehler=0
+          re_galerie='^[A-Za-z0-9_-]{1,64}$'
+          re_marke='^[a-z0-9][a-z0-9-]{0,39}$'
+          re_ordner='^[A-Za-z0-9_-]{10,100}$'
+          re_ablauf='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,3})?(Z|[+-][0-9]{2}:[0-9]{2})$'
+          ordner="$(jq -r '.inputs.ordner_id // ""' "$GITHUB_EVENT_PATH")"
+          [[ "$GALERIE_ID" =~ $re_galerie ]] || { echo "::error::galerie_id ungültig"; fehler=1; }
+          [[ "$MARKE" =~ $re_marke ]] || { echo "::error::marke ungültig"; fehler=1; }
+          [[ "$ordner" =~ $re_ordner ]] || { echo "::error::ordner_id ungültig"; fehler=1; }
+          [[ "$ABLAUF" =~ $re_ablauf ]] || { echo "::error::ablauf ungültig"; fehler=1; }
+          if [[ ${#TITEL} -lt 1 || ${#TITEL} -gt 200 || "$TITEL" =~ [[:cntrl:]] ]]; then echo "::error::titel ungültig"; fehler=1; fi
+          [[ $fehler -eq 0 ]] || exit 1
+          # Ordner-ID ist kein Geheimnis, gehört aber nicht ins öffentliche Log.
+          echo "::add-mask::$ordner"
+          echo "ORDNER_ID=$ordner" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Code-Hash entschlüsseln und maskieren
+        # Liest code_hash_enc aus dem Ereignis, entschlüsselt mit GALERIE_SCHLUESSEL (AAD =
+        # galerie_id), prüft das pbkdf2-Format, maskiert den Klartext und legt ihn mit Rechten 600
+        # nach $RUNNER_TEMP/code-hash. Gibt außer der Maske nichts aus. Nur Node-Bordmittel.
+        env:
+          GALERIE_SCHLUESSEL: ${{ secrets.GALERIE_SCHLUESSEL }}
+        run: node bau/geheim.mjs eingabe
+
+      - name: Speicher freiräumen
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Marke lesen
+        run: |
+          datei="marken/$MARKE/marke.json"
+          [[ -f "$datei" ]] || { echo "::error::Marke $MARKE fehlt"; exit 1; }
+          projekt="$(jq -r '.pagesProjekt' "$datei")"
+          domain="$(jq -r '.domain' "$datei")"
+          [[ "$projekt" =~ ^[a-z0-9][a-z0-9-]{0,57}$ ]] || { echo "::error::pagesProjekt ungültig"; exit 1; }
+          [[ "$domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::domain ungültig"; exit 1; }
+          echo "PAGES_PROJEKT=$projekt" >> "$GITHUB_ENV"
+          echo "DOMAIN=$domain" >> "$GITHUB_ENV"
+
+      - name: Abhängigkeiten
+        # Alles fest aus package-lock.json (mit Integritäts-Hash), auch wrangler. Keine
+        # Install-Skripte: in diesem Job gibt es OIDC (Google) und später den Cloudflare-Token.
+        run: npm ci --no-audit --no-fund --ignore-scripts
+
+      - name: HEIC-Werkzeuge (libheif)
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libheif-examples libheif-plugin-libde265
+
+      - name: Bei Google anmelden (Workload Identity)
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SA_EMAIL }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Galerie bauen
+        run: |
+          node bau/bau.mjs \
+            --quelle "drive:$ORDNER_ID" \
+            --marke "$MARKE" \
+            --titel "$TITEL" \
+            --galerie "$GALERIE_ID" \
+            --ablauf "$ABLAUF" \
+            --code-hash "$(cat "$RUNNER_TEMP/code-hash")" \
+            --aus dist
+          df -h /
+
+      - name: Google-Zugang entfernen
+        # Ab hier braucht der Lauf Google nicht mehr. Die Zugangsdatei von google-github-actions/auth
+        # verschwindet, damit Werkzeuge der folgenden Schritte (wrangler) sie nicht finden.
+        if: always()
+        run: |
+          rm -f "$GITHUB_WORKSPACE"/gha-creds-*.json "$RUNNER_TEMP/code-hash"
+          for v in GOOGLE_APPLICATION_CREDENTIALS CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE GOOGLE_GHA_CREDS_PATH; do
+            echo "$v=" >> "$GITHUB_ENV"
+          done
+
+      - name: Pages-Projekt anlegen, falls es fehlt
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set +e
+          node bau/pages.mjs projekt-pruefen --projekt "$PAGES_PROJEKT"
+          rc=$?
+          set -e
+          if [[ $rc -eq 3 ]]; then
+            if ! ausgabe="$(node_modules/.bin/wrangler pages project create "$PAGES_PROJEKT" --production-branch main 2>&1)"; then
+              if grep -qi "already exists" <<<"$ausgabe"; then echo "Projekt gibt es schon"; else echo "$ausgabe"; exit 1; fi
+            fi
+          elif [[ $rc -ne 0 ]]; then
+            exit $rc
+          fi
+
+      - name: Domain anhängen, falls sie fehlt
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node bau/pages.mjs domain-sicherstellen --projekt "$PAGES_PROJEKT" --domain "$DOMAIN"
+
+      - name: Deployen
+        # Aus dist heraus, damit wrangler dist/functions (mit _daten.js) bündelt.
+        # Den Ordner functions lädt wrangler nie als statische Datei hoch.
+        # Die Hash-Adresse des Deployments steht nicht im öffentlichen Log, nur im verschlüsselten
+        # Bericht (gelöschte Deployments können eine Weile weiterlaufen, siehe LIESMICH).
+        working-directory: dist
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          protokoll="$RUNNER_TEMP/deploy.log"
+          rc=0
+          ../node_modules/.bin/wrangler pages deploy . \
+            --project-name "$PAGES_PROJEKT" \
+            --branch main \
+            --commit-dirty=true \
+            --commit-message "galerie $GALERIE_ID" > "$protokoll" 2>&1 || rc=$?
+          # Deployment-Adresse: 8 Hex-Zeichen vor dem Projektnamen (Aliasse wie main. zählen nicht).
+          adresse="$(grep -Eo "https://[0-9a-f]{8}\.${PAGES_PROJEKT}\.pages\.dev" "$protokoll" | tail -n 1 || true)"
+          if [[ -n "$adresse" ]]; then printf '%s' "$adresse" > "$RUNNER_TEMP/deployment-adresse"; fi
+          sed -E "s#https://[a-z0-9-]+\.${PAGES_PROJEKT}\.pages\.dev#https://<hash>.${PAGES_PROJEKT}.pages.dev#g" "$protokoll"
+          rm -f "$protokoll"
+          exit "$rc"
+
+      - name: Deployment prüfen
+        # Function antwortet, Function-Quellen samt Code-Hash und Cookie-Schlüssel sind nicht abrufbar.
+        run: |
+          basis="https://$PAGES_PROJEKT.pages.dev"
+          ok=0
+          for _ in $(seq 1 24); do
+            if status="$(curl -fsS --max-time 15 "$basis/api/status")" \
+              && jq -e --arg t "$TITEL" '.titel == $t and .abgelaufen == false' <<<"$status" >/dev/null; then
+              ok=1; break
+            fi
+            sleep 5
+          done
+          [[ $ok -eq 1 ]] || { echo "::error::/api/status antwortet nicht mit dieser Galerie"; exit 1; }
+          for pfad in /functions/_daten.js /functions/_lib/zugang.js /functions/api/%5B%5Bpfad%5D%5D.js /_routes.json; do
+            if curl -sS --max-time 15 "$basis$pfad" | grep -qE 'cookieSchluessel|codeHash|erzeugeHandler'; then
+              echo "::error::$pfad ist öffentlich abrufbar"; exit 1
+            fi
+          done
+          code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$basis/api/manifest")"
+          [[ "$code" == 401 ]] || { echo "::error::/api/manifest ohne Cookie liefert $code statt 401"; exit 1; }
+          echo "Deployment geprüft: Function aktiv, Quellen nicht öffentlich, Manifest geschützt."
+
+      - name: Ältere Deployments löschen
+        # Erst nach erfolgreicher Prüfung. Sonst bleiben frühere Fassungen dieser und anderer
+        # Galerien der Marke unter ihrer Hash-Adresse (<hash>.<projekt>.pages.dev) erreichbar,
+        # samt Function, die den alten Code annimmt.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node bau/pages.mjs alte-deployments-loeschen --projekt "$PAGES_PROJEKT"
+
+      - name: Bericht verschlüsseln
+        # Der Bericht nennt Dateinamen (übersprungen, GPS, md5). Hinaus geht er nur verschlüsselt
+        # (AAD = galerie_id); das OS entschlüsselt ihn. Die Adresse des Deployments kommt dazu.
+        if: always()
+        env:
+          GALERIE_SCHLUESSEL: ${{ secrets.GALERIE_SCHLUESSEL }}
+        run: |
+          rm -f bericht.enc
+          [[ -f bericht.json ]] || { echo "Kein Bericht vorhanden."; exit 0; }
+          if [[ -f "$RUNNER_TEMP/deployment-adresse" ]]; then
+            jq --rawfile a "$RUNNER_TEMP/deployment-adresse" '.deployment = $a' bericht.json > "$RUNNER_TEMP/bericht.json"
+          else
+            cp bericht.json "$RUNNER_TEMP/bericht.json"
+          fi
+          node bau/geheim.mjs bericht --galerie "$GALERIE_ID" --ein "$RUNNER_TEMP/bericht.json" --aus bericht.enc
+          rm -f "$RUNNER_TEMP/bericht.json" "$RUNNER_TEMP/deployment-adresse"
+
+      - name: Bericht hochladen
+        # Nur bericht.enc. Nie dist/ und nie bericht.json: Artefakte öffentlicher Repos kann jeder
+        # angemeldete GitHub-Nutzer laden.
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: bericht
+          path: bericht.enc
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Zusammenfassung
+        # Öffentlich lesbar: nur Status und Anzahlen, keine Namen, Pfade oder Adressen.
+        if: always()
+        env:
+          STATUS: ${{ job.status }}
+        run: |
+          # Originale gehen byte-gleich an jeden Gast mit Link, samt GPS. Als Warnung im Lauf,
+          # damit das OS sie vor dem Freischalten anzeigen kann (Annotation statt nur Tabelle).
+          if [[ -f bericht.json ]]; then
+            gps="$(jq '.gpsFunde | length' bericht.json)"
+            if [[ "$gps" -gt 0 ]]; then
+              echo "::warning title=GPS in Originalen::$gps Originale enthalten den Aufnahmeort (GPS). Sie gehen unverändert an jeden, der den Link hat. Vor dem Versand des Links prüfen."
+            fi
+          fi
+          {
+            echo "## Bau"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            if [[ "$STATUS" == success ]]; then echo "| Status | erfolgreich |"; else echo "| Status | fehlgeschlagen |"; fi
+            if [[ -f bericht.json ]]; then
+              jq -r '
+                "| Bilder | \(.anzahl) |",
+                "| Dubletten | \(.dubletten) |",
+                "| Übersprungen | \(.uebersprungen | length) |",
+                "| Mit GPS (nur gemeldet) | \(.gpsFunde | length) |",
+                "| Geteilte Originale | \(.geteilteOriginale | length) |",
+                "| md5-Fehler | \(.md5Fehler | length) |",
+                "| Originale | \((.bytesOriginale / 1e9 * 100 | floor) / 100) GB |",
+                "| Deployment gesamt | \((.bytesGesamt / 1e9 * 100 | floor) / 100) GB |",
+                "| Dauer | \(.dauerSek) s |"
+              ' bericht.json
+            fi
+            echo
+            echo "Einzelheiten nur im verschlüsselten Bericht (Artefakt bericht, im Krüger OS lesbar)."
+          } >> "$GITHUB_STEP_SUMMARY"

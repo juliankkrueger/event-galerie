@@ -1,0 +1,1194 @@
+/* Event-Galerie: Gäste-Oberfläche. Farben und Schriften kommen aus assets/marke.css (vom Bau erzeugt). */
+
+@font-face {
+  font-family: "Unbounded";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("schriften/unbounded-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Unbounded";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("schriften/unbounded-latin-200-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Italiana";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("schriften/italiana-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("schriften/open-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("schriften/open-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("schriften/open-sans-latin-600-normal.woff2") format("woff2");
+}
+
+:root {
+  --f-grund: var(--grund, #101418);
+  --f-flaeche: var(--flaeche, #1a2026);
+  --f-text: var(--text, #f2f2f2);
+  --f-leise: var(--text-leise, #b8bfc6);
+  --f-akzent: var(--akzent, #d8b48a);
+  --f-akzent-text: var(--akzent-text, #101418);
+  --f-rahmen: var(--rahmen, #2c3640);
+  --f-fehler: #ffb4a8;
+  --s-titel: var(--schrift-titel, Georgia, serif);
+  --s-text: var(--schrift-text, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  --rand: clamp(16px, 4vw, 48px);
+  --breite: 1680px;
+  --luecke: 6px;
+  /* --rund kommt aus marke.css (stil.knopfEcken), sonst Pille */
+  --f-rund: var(--rund, 999px);
+  --bild-rund: 3px;
+  --dauer: 180ms;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: var(--f-grund);
+}
+
+html.ansicht-offen {
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--f-grund);
+  color: var(--f-text);
+  font-family: var(--s-text);
+  font-size: 1rem;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --leiste-hoehe misst app.js an der festen Leiste (enthält schon den sicheren Bereich unten) */
+body.mit-leiste {
+  padding-bottom: calc(var(--leiste-hoehe, 132px) + 12px);
+}
+
+img {
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--f-akzent);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.nur-vorlesen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.versteckt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+  left: -10px;
+  top: -10px;
+}
+
+.sprunglink {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 50;
+  padding: 10px 16px;
+  background: var(--f-akzent);
+  color: var(--f-akzent-text);
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sprunglink:focus {
+  top: 12px;
+}
+
+.titel {
+  font-family: var(--s-titel);
+  font-weight: var(--titel-gewicht, 400);
+  letter-spacing: var(--titel-laufweite, 0);
+  text-transform: var(--titel-schreibung, none);
+  line-height: 1.12;
+  margin: 0;
+}
+
+/* Titel mit tabindex="-1" bekommen nur per Skript den Fokus (Zustandswechsel), kein Rahmen */
+.titel[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* ---------- Kopf ---------- */
+
+.kopf {
+  width: 100%;
+  max-width: var(--breite);
+  margin: 0 auto;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) var(--rand) 0;
+}
+
+.kopf-logo {
+  display: block;
+  height: 30px;
+  width: auto;
+}
+
+@media (min-width: 760px) {
+  .kopf {
+    padding-top: 32px;
+  }
+  .kopf-logo {
+    height: 42px;
+  }
+}
+
+main {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: var(--breite);
+  margin: 0 auto;
+  padding: 0 var(--rand);
+}
+
+main:focus {
+  outline: none;
+}
+
+/* ---------- Zustände ---------- */
+
+.zustand {
+  min-height: 62vh;
+  max-width: 30rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+  padding: 48px 0;
+}
+
+.zustand-titel {
+  font-size: calc(clamp(1.75rem, 3vw + 1rem, 2.6rem) * var(--titel-faktor, 1));
+}
+
+.zustand-text {
+  margin: 0;
+  color: var(--f-leise);
+  max-width: 28rem;
+}
+
+.lader {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--f-rahmen);
+  border-top-color: var(--f-akzent);
+  animation: drehen 900ms linear infinite;
+}
+
+@keyframes drehen {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.code-form {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.code-label {
+  font-size: 0.875rem;
+  color: var(--f-leise);
+  text-align: left;
+}
+
+.code-feld {
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 14px;
+  border-radius: min(10px, var(--f-rund));
+  border: 1px solid var(--f-leise);
+  background: var(--f-flaeche);
+  color: var(--f-text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.code-feld[aria-invalid="true"] {
+  border-color: var(--f-fehler);
+  box-shadow: 0 0 0 1px var(--f-fehler);
+}
+
+.code-meldung {
+  min-height: 1.55em;
+  margin: 0;
+  color: var(--f-fehler);
+  font-size: 0.95rem;
+}
+
+.code-meldung:empty {
+  min-height: 0;
+}
+
+.code-uhr {
+  margin: -4px 0 0;
+  color: var(--f-leise);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Knöpfe ---------- */
+
+.knopf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: var(--f-rund);
+  border: 1px solid transparent;
+  background: transparent;
+  font-weight: var(--knopf-gewicht, 600);
+  font-size: 0.95rem;
+  line-height: 1.2;
+  text-transform: var(--knopf-schreibung, none);
+  letter-spacing: var(--knopf-laufweite, normal);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dauer), color var(--dauer), border-color var(--dauer), opacity var(--dauer);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.knopf-primaer {
+  background-color: var(--f-akzent);
+  background-image: var(--knopf-verlauf, none);
+  color: var(--f-akzent-text);
+}
+
+.knopf-leise {
+  border-color: var(--f-leise);
+  color: var(--f-text);
+}
+
+/* Hover nur mit echtem Zeiger: auf Touch-Geräten bliebe er nach dem Antippen hängen */
+@media (hover: hover) and (pointer: fine) {
+  .knopf-primaer:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .knopf-leise:hover:not(:disabled) {
+    border-color: var(--f-text);
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+  .knopf-symbol:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .kapitel-link:hover {
+    color: var(--f-text);
+  }
+  .fuss-links a:hover {
+    color: var(--f-text);
+  }
+  .ansicht-pfeil:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+}
+
+.knopf-leise[aria-pressed="true"] {
+  border-color: var(--f-akzent);
+}
+
+.knopf-klein {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 0.875rem;
+}
+
+.knopf:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.knopf-symbol {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  flex: none;
+}
+
+.knopf-symbol svg,
+.ansicht-pfeil svg,
+.knopf-aufheben svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Galerie ---------- */
+
+.galerie-kopf {
+  padding: clamp(28px, 6vw, 72px) 0 clamp(20px, 3vw, 32px);
+  display: grid;
+  gap: 10px;
+}
+
+.galerie-titel {
+  font-size: calc(clamp(2rem, 4.2vw + 1rem, 4.2rem) * var(--titel-faktor, 1));
+  max-width: 22ch;
+}
+
+.galerie-info {
+  margin: 0;
+  color: var(--f-leise);
+}
+
+.galerie-werkzeuge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 12px;
+}
+
+@media (max-width: 640px) {
+  .galerie-kopf {
+    padding: 22px 0 18px;
+    gap: 6px;
+  }
+  .galerie-werkzeuge {
+    margin-top: 6px;
+    gap: 8px 14px;
+  }
+}
+
+.galerie-tipp {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--f-leise);
+}
+
+body.waehlt .galerie-tipp {
+  visibility: hidden;
+}
+
+.kapitelleiste {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 calc(var(--rand) * -1);
+  background: var(--f-grund);
+  border-bottom: 1px solid var(--f-rahmen);
+}
+
+/* Verlauf an den Rändern zeigt, dass die Leiste weiterläuft (Klassen setzt app.js) */
+.kapitelleiste::before,
+.kapitelleiste::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dauer);
+  z-index: 1;
+}
+
+.kapitelleiste::before {
+  left: 0;
+  background: linear-gradient(to right, var(--f-grund) 25%, transparent);
+}
+
+.kapitelleiste::after {
+  right: 0;
+  background: linear-gradient(to left, var(--f-grund) 25%, transparent);
+}
+
+.kapitelleiste.mehr-links::before,
+.kapitelleiste.mehr-rechts::after {
+  opacity: 1;
+}
+
+.kapitelliste {
+  display: flex;
+  gap: 4px 26px;
+  margin: 0;
+  padding: 0 var(--rand);
+  list-style: none;
+  white-space: nowrap;
+  overflow-x: auto;
+  scroll-padding-inline: var(--rand);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.kapitelliste::-webkit-scrollbar {
+  display: none;
+}
+
+.kapitel-link {
+  display: inline-block;
+  padding: 14px 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--f-leise);
+  text-decoration: none;
+  font-size: 0.925rem;
+}
+
+.kapitel-link[aria-current="true"] {
+  color: var(--f-text);
+  border-bottom-color: var(--f-akzent);
+}
+
+.kapitel {
+  padding-top: clamp(28px, 4vw, 48px);
+  scroll-margin-top: 52px;
+}
+
+.kapitel-kopf {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 14px;
+  margin-bottom: 16px;
+}
+
+.kapitel-kopftext {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  min-width: 0;
+}
+
+.kapitel-titel {
+  font-size: calc(clamp(1.35rem, 1.6vw + 0.9rem, 2rem) * var(--titel-faktor, 1));
+}
+
+.kapitel-anzahl {
+  color: var(--f-leise);
+  font-size: 0.9rem;
+}
+
+.kapitel-alle {
+  white-space: nowrap;
+}
+
+/* Am Handy: Titel über die ganze Breite, darunter Anzahl und Knopf in einer Zeile */
+@media (max-width: 640px) {
+  .kapitel {
+    padding-top: 22px;
+  }
+  .kapitel-kopf {
+    margin-bottom: 12px;
+    row-gap: 2px;
+  }
+  .kapitel-kopftext {
+    display: contents;
+  }
+  .kapitel-titel {
+    grid-column: 1 / -1;
+  }
+  .kapitel-anzahl {
+    grid-column: 1;
+  }
+  .kapitel-alle {
+    grid-column: 2;
+  }
+  .kapitel-link {
+    padding: 11px 0 9px;
+  }
+}
+
+/* Mauerwerk: Zeilen zu 4 px, die Spannweite setzt app.js aus dem Seitenverhältnis */
+.raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-auto-rows: 4px;
+  column-gap: var(--luecke);
+  row-gap: 0;
+  align-items: start;
+}
+
+@media (min-width: 600px) {
+  .raster {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .raster {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+}
+
+.kachel {
+  position: relative;
+  border-radius: var(--bild-rund);
+  overflow: hidden;
+  background: var(--f-flaeche);
+}
+
+.kachel-bild {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--v, 1.5);
+  padding: 0;
+  border: 0;
+  background: var(--f-flaeche);
+  cursor: zoom-in;
+  position: relative;
+}
+
+.kachel-bild img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 400ms ease, opacity var(--dauer);
+}
+
+.kachel-bild::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--bild-rund);
+  box-shadow: inset 0 0 0 0 var(--f-akzent);
+  transition: box-shadow var(--dauer);
+  pointer-events: none;
+}
+
+.kachel-bild:focus-visible {
+  outline: none;
+}
+
+/* Fokus als Rahmen im Bild: kupfer- bzw. türkisfarben mit dunkler Kante, auf jedem Foto sichtbar */
+.kachel-bild:focus-visible::after {
+  box-shadow: inset 0 0 0 3px var(--f-akzent), inset 0 0 0 6px rgba(0, 0, 0, 0.75);
+}
+
+@media (hover: hover) {
+  .kachel:hover .kachel-bild img {
+    transform: scale(1.025);
+  }
+}
+
+body.waehlt .kachel-bild {
+  cursor: pointer;
+}
+
+.kachel.fehlt .kachel-bild img {
+  opacity: 0;
+}
+
+.kachel-wahl {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kachel-wahl:focus-visible {
+  outline: none;
+}
+
+.kachel-wahl:focus-visible .kachel-kreis {
+  opacity: 1;
+  outline: 3px solid var(--f-akzent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 7px rgba(0, 0, 0, 0.7);
+}
+
+.kachel-kreis {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: rgba(0, 0, 0, 0.38);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  transition: background-color var(--dauer), border-color var(--dauer), opacity var(--dauer);
+}
+
+.kachel-kreis svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: transparent;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Am Rechner dezent sichtbar, damit der Tipp "Klick auf den Kreis" stimmt */
+@media (hover: hover) and (pointer: fine) {
+  .kachel-kreis {
+    opacity: 0.7;
+  }
+  .kachel:hover .kachel-kreis,
+  .kachel:focus-within .kachel-kreis,
+  body.waehlt .kachel-kreis {
+    opacity: 1;
+  }
+}
+
+.kachel.gewaehlt .kachel-kreis {
+  opacity: 1;
+  background: var(--f-akzent);
+  border-color: var(--f-akzent);
+}
+
+.kachel.gewaehlt .kachel-kreis svg {
+  stroke: var(--f-akzent-text);
+}
+
+.kachel.gewaehlt .kachel-bild::after {
+  box-shadow: inset 0 0 0 3px var(--f-akzent);
+}
+
+.kachel.gewaehlt .kachel-bild img {
+  opacity: 0.86;
+}
+
+/* ---------- Fuß ---------- */
+
+.fuss {
+  width: 100%;
+  max-width: var(--breite);
+  margin: 72px auto 0;
+  padding: 28px var(--rand) calc(32px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--f-rahmen);
+  color: var(--f-leise);
+  font-size: 0.875rem;
+}
+
+.fuss-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+}
+
+.fuss-links a {
+  display: inline-block;
+  padding: 8px 0;
+  color: var(--f-leise);
+  text-underline-offset: 3px;
+}
+
+body.mit-event-knopf #link-event {
+  display: none;
+}
+
+.fuss-hinweis {
+  margin: 10px 0 0;
+  max-width: 44rem;
+}
+
+/* ---------- Aktionsleiste ---------- */
+
+.leiste {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: var(--f-flaeche);
+  border-top: 1px solid var(--f-rahmen);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+  padding: 12px max(var(--rand), env(safe-area-inset-left, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(var(--rand), env(safe-area-inset-right, 0px));
+}
+
+.leiste-zeile {
+  max-width: var(--breite);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+
+.zaehler {
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.zaehler-zahl {
+  font-weight: 600;
+}
+
+.zaehler-rest {
+  color: var(--f-leise);
+}
+
+.zaehler-rest::before {
+  content: " · ";
+}
+
+.leiste-knoepfe {
+  display: flex;
+  gap: 10px;
+  flex: 0 1 auto;
+}
+
+.leiste.arbeitet .leiste-knoepfe {
+  display: none;
+}
+
+.leiste-nebenlink {
+  display: block;
+  margin: 0 auto;
+  padding: 6px 4px;
+  border: 0;
+  background: none;
+  color: var(--f-leise);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.knopf-aufheben svg {
+  display: none;
+}
+
+.text-kurz {
+  display: none;
+}
+
+.leiste .knopf {
+  white-space: nowrap;
+}
+
+/* Am Handy eine Zeile: Zähler, Aufheben als Kreuz, Hauptknopf. Spart Höhe für Fotos. */
+@media (max-width: 640px) {
+  .leiste {
+    padding-top: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .leiste-zeile {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .zaehler {
+    flex: 1 1 auto;
+    font-size: 0.875rem;
+    line-height: 1.3;
+  }
+  .zaehler-zahl,
+  .zaehler-rest {
+    display: block;
+  }
+  .zaehler-rest::before {
+    content: none;
+  }
+  .leiste-knoepfe {
+    flex: 0 0 auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .leiste-knoepfe .knopf {
+    min-height: 48px;
+    padding: 0 16px;
+  }
+  .leiste-knoepfe .knopf-aufheben {
+    width: 48px;
+    padding: 0;
+    border-radius: 50%;
+  }
+  .knopf-aufheben svg {
+    display: block;
+  }
+  .knopf-aufheben .knopf-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .zaehler-wort {
+    display: none;
+  }
+  .text-lang {
+    display: none;
+  }
+  .text-kurz {
+    display: inline;
+  }
+  .leiste-knoepfe .knopf {
+    padding: 0 14px;
+  }
+}
+
+.panel {
+  max-width: var(--breite);
+  margin: 0 auto 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--f-rahmen);
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.panel-kopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-titel {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.panel-text {
+  margin: 2px 0 10px;
+  color: var(--f-leise);
+  max-width: 48rem;
+}
+
+.fortschritt {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin: 0 0 12px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--f-rahmen);
+  overflow: hidden;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.fortschritt::-webkit-progress-bar {
+  background: var(--f-rahmen);
+}
+
+.fortschritt::-webkit-progress-value {
+  background: var(--f-akzent);
+  transition: width var(--dauer);
+}
+
+.fortschritt::-moz-progress-bar {
+  background: var(--f-akzent);
+}
+
+.panel-liste {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.panel-eintrag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--f-rahmen);
+}
+
+.panel-knoepfe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .panel-knoepfe .knopf-primaer {
+    flex: 1 1 100%;
+    min-height: 52px;
+  }
+}
+
+/* ---------- Großansicht ---------- */
+
+.ansicht {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #050708;
+  background: color-mix(in srgb, var(--f-grund) 35%, #000);
+  color: #fff;
+  overflow: hidden;
+}
+
+.ansicht[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.ansicht::backdrop {
+  background: #000;
+}
+
+.ansicht-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px));
+  position: relative;
+  z-index: 2;
+}
+
+.ansicht-titel {
+  margin: 0;
+  font-size: 0.925rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+
+.ansicht-kapitel {
+  color: #c9cfd2;
+}
+
+.ansicht-knoepfe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ansicht .knopf {
+  white-space: nowrap;
+}
+
+@media (max-width: 360px) {
+  .ansicht .knopf-klein {
+    padding: 0 12px;
+  }
+  .ansicht-knoepfe {
+    gap: 6px;
+  }
+}
+
+.ansicht .knopf-leise {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.ansicht .knopf-leise[aria-pressed="true"] {
+  background: var(--f-akzent);
+  border-color: var(--f-akzent);
+  color: var(--f-akzent-text);
+}
+
+.haken {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: none;
+}
+
+[aria-pressed="true"] > .haken {
+  display: block;
+}
+
+.buehne {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+.buehne-bild {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: translateX(var(--wisch, 0px));
+  transition: transform 220ms ease, opacity 200ms ease;
+  -webkit-user-drag: none;
+}
+
+.buehne.wischt .buehne-bild {
+  transition: none;
+}
+
+#ansicht-bild {
+  opacity: 0;
+}
+
+.buehne.geladen #ansicht-bild {
+  opacity: 1;
+}
+
+.buehne.geladen .buehne-platz {
+  opacity: 0;
+}
+
+.ansicht-pfeil {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 52px;
+  height: 52px;
+  margin-top: -26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+}
+
+@media (min-width: 641px) {
+  .buehne-bild {
+    left: 76px;
+    right: 76px;
+    width: calc(100% - 152px);
+  }
+}
+
+.ansicht-pfeil-links {
+  left: max(12px, env(safe-area-inset-left, 0px));
+}
+
+.ansicht-pfeil-rechts {
+  right: max(12px, env(safe-area-inset-right, 0px));
+}
+
+@media (max-width: 640px) {
+  .ansicht-pfeil {
+    top: auto;
+    margin-top: 0;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* ---------- Bewegung reduzieren ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  .kachel:hover .kachel-bild img {
+    transform: none;
+  }
+  .lader {
+    animation: none;
+    border-top-color: var(--f-rahmen);
+  }
+}

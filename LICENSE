@@ -1,0 +1,17 @@
+Copyright (c) 2026 Agentur Krüger GmbH. Alle Rechte vorbehalten.
+
+Dieser Quelltext ist öffentlich einsehbar, steht aber unter keiner freien Lizenz
+(kein Open Source). Ohne vorherige schriftliche Erlaubnis der Agentur Krüger GmbH
+ist es nicht gestattet, ihn ganz oder in Teilen zu nutzen, zu vervielfältigen, zu
+verändern oder weiterzugeben, soweit das Gesetz es nicht ausdrücklich erlaubt.
+Die Rechte, die die Nutzungsbedingungen von GitHub für öffentliche Repositories
+einräumen (Ansehen und Forken auf GitHub), bleiben unberührt.
+
+Ausgenommen sind Bestandteile Dritter, für die ihre eigene Lizenz gilt:
+
+- vorlage/assets/client-zip.js: client-zip von David Junger, MIT-Lizenz,
+  siehe vorlage/assets/client-zip.LICENSE.txt
+- vorlage/assets/schriften/*.woff2: Italiana, Open Sans und Unbounded,
+  SIL Open Font License 1.1, siehe vorlage/assets/schriften/OFL-*.txt
+- Logos und Zeichen unter marken/: Marken ihrer jeweiligen Inhaber, hier nur zur
+  Darstellung der jeweiligen Event-Galerie. Sie sind von keiner Lizenz umfasst.
