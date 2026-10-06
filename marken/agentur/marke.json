@@ -1,0 +1,9 @@
+{ "id": "agentur", "name": "Agentur Krüger", "eventSeite": "https://agenturkrueger-digital.de",
+  "pagesProjekt": "fotos-agentur-krueger",
+  "farben": { "grund": "#0C1A33", "flaeche": "#13264A", "text": "#F4EFE4", "textLeise": "#C9C0AD",
+              "akzent": "#C9A979", "akzentText": "#0C1A33", "rahmen": "#2B4472" },
+  "schriften": { "titel": "Cormorant Garamond", "text": "system-ui" },
+  "stil": { "knopfEcken": "weich", "knopfVersal": true, "knopfLaufweite": "0.08em", "knopfGewicht": 600,
+            "knopfVerlauf": ["#E7D9B0", "#C4A474", "#A88365"] },
+  "logo": "logo.png", "favicon": { "ico": "favicon.ico", "png32": "favicon-32.png", "png192": "favicon-192.png", "apple": "apple-touch-icon.png" },
+  "impressum": "https://agenturkrueger-digital.de/impressum/", "datenschutz": "https://agenturkrueger-digital.de/datenschutz/" }

@@ -3,7 +3,9 @@
 //
 // node bau/bau.mjs --quelle drive:<ordnerId> | ordner:<pfad>
 //                  --marke <id> --titel "<Text>" --galerie <galerieId>
-//                  --ablauf <ISO-Datum> --code-hash "<pbkdf2$...>" --aus dist
+//                  [--ablauf <ISO-Datum> | nie] --code-hash "<pbkdf2$...>" --aus dist
+//
+// Ohne --ablauf (oder mit "nie" bzw. leer) läuft die Galerie nie ab.
 //
 // Zusätzlich (für Tests): --marken <dir> (Standard marken/), --vorlage <dir> (Standard vorlage/)
 //
@@ -58,9 +60,14 @@ export function pruefeArgumente(werte, jetzt = Date.now()) {
   if (!MUSTER.galerie.test(werte.galerie || "")) fehler.push("--galerie ungültig (A-Z a-z 0-9 _ -, höchstens 64)");
   const titel = (werte.titel || "").trim();
   if (!titel || titel.length > 200 || /[\u0000-\u001f\u007f]/.test(titel)) fehler.push("--titel fehlt oder ungültig");
-  if (!MUSTER.ablauf.test(werte.ablauf || "") || Number.isNaN(Date.parse(werte.ablauf))) {
-    fehler.push("--ablauf muss ISO mit Zeitzone sein, z. B. 2027-01-03T23:59:59+01:00");
-  } else if (Date.parse(werte.ablauf) <= jetzt) fehler.push("--ablauf liegt in der Vergangenheit");
+  // Ohne Ablauf (fehlt, leer oder "nie") bleibt die Galerie online, bis sie jemand abschaltet.
+  const ablaufText = (werte.ablauf ?? "").trim();
+  const ablauf = ablaufText === "" || ablaufText === "nie" ? null : ablaufText;
+  if (ablauf !== null) {
+    if (!MUSTER.ablauf.test(ablauf) || Number.isNaN(Date.parse(ablauf))) {
+      fehler.push("--ablauf muss ISO mit Zeitzone sein (z. B. 2027-01-03T23:59:59+01:00) oder nie");
+    } else if (Date.parse(ablauf) <= jetzt) fehler.push("--ablauf liegt in der Vergangenheit");
+  }
   if (!zerlegeCodeHash(werte["code-hash"])) fehler.push("--code-hash ungültig (pbkdf2$sha256$<iter>$<salz>$<hash>)");
   if (!werte.aus) fehler.push("--aus fehlt");
   if (fehler.length) throw new EingabeFehler(fehler.join("\n"));
@@ -70,7 +77,7 @@ export function pruefeArgumente(werte, jetzt = Date.now()) {
     marke: werte.marke,
     galerie: werte.galerie,
     titel,
-    ablauf: werte.ablauf,
+    ablauf,
     codeHash: werte["code-hash"],
     aus: resolve(werte.aus),
     marken: resolve(werte.marken || join(WURZEL, "marken")),
@@ -229,7 +236,8 @@ export async function baue(a) {
       galerie: a.galerie,
       marke: a.marke,
       titel: a.titel,
-      ablauf: a.ablauf,
+      // Ohne Ablauf fehlt der Schlüssel ganz (die Oberfläche zeigt dann kein „online bis“).
+      ...(a.ablauf ? { ablauf: a.ablauf } : {}),
       erstellt: new Date().toISOString(),
       anzahl,
       bytesOriginale: bericht.bytesOriginale,

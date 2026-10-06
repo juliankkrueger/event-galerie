@@ -200,11 +200,31 @@ test("Zweiter Bau ersetzt dist, neuer tok und neuer Cookie-Schlüssel", async ()
   assert.deepEqual(await readdir(join(dist, "b")), [neu.manifest.kapitel[0].bilder[0].r.split("/")[2]]);
 });
 
+test("Ohne Ablauf (nie, leer oder weggelassen): status.json und Manifest ohne ablauf, Function nie abgelaufen", async () => {
+  for (const [i, extra] of [["--ablauf", "nie"], ["--ablauf", ""], null].entries()) {
+    const aus = join(tmp, `ohne-ablauf-${i}`, "dist");
+    const args = [
+      BAU, "--quelle", `ordner:${join(quelle, "1 Mittwoch")}`, "--marke", "testmarke", "--titel", "Ohne Ablauf",
+      "--galerie", "test-nie", "--code-hash", codeHash, "--aus", aus, "--marken", join(tmp, "marken"), "--vorlage", join(tmp, "vorlage"),
+      ...(extra || []),
+    ];
+    await run(process.execPath, args, { maxBuffer: 10e6 });
+    assert.deepEqual(JSON.parse(await readFile(join(aus, "status.json"), "utf8")), { titel: "Ohne Ablauf", marke: "testmarke" });
+    const d = await import(`${pathToFileURL(join(aus, "functions", "_daten.js")).href}?nie${i}`);
+    assert.equal(d.ablauf, null);
+    assert.ok(!("ablauf" in d.manifest), "Manifest ohne ablauf");
+    const { onRequest } = await import(`${pathToFileURL(join(aus, "functions", "api", "[[pfad]].js")).href}?nie${i}`);
+    const st = await onRequest({ request: new Request("https://fotos.example.org/api/status") });
+    assert.equal((await st.json()).abgelaufen, false);
+  }
+});
+
 test("Ungültige Eingaben: Exit 2, nichts gebaut; fremder nicht leerer Ordner wird nicht gelöscht", async () => {
   for (const [schalter, wert] of [
     ["--galerie", "a b"],
     ["--ablauf", "2020-01-01T00:00:00Z"],
     ["--ablauf", "2027-01-03"],
+    ["--ablauf", "niemals"],
     ["--code-hash", "klartext"],
     ["--marke", "../x"],
   ]) {

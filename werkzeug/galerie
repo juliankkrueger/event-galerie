@@ -1,0 +1,6 @@
+#!/usr/bin/env node
+// Startpunkt des Werkzeugs (auch über einen Symlink, z. B. /usr/local/bin/galerie).
+// Die eigentliche Arbeit macht galerie.mjs im selben Ordner.
+import("./galerie.mjs").then(async (m) => {
+  process.exitCode = await m.haupt();
+});

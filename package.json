@@ -12,7 +12,7 @@
     "bauen": "node bau/bau.mjs",
     "offline": "node bau/offline.mjs",
     "code": "node bau/code-hash.mjs",
-    "test": "node --test --test-concurrency=1 tests/bau/*.test.mjs"
+    "test": "node --test --test-concurrency=1 tests/bau/*.test.mjs tests/werkzeug/*.test.mjs"
   },
   "dependencies": {
     "google-auth-library": "^10.9.1",

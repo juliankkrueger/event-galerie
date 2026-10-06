@@ -11,6 +11,13 @@
 //      Exit 0 = die Produktion zeigt genau diese Galerie (abschalten),
 //      Exit 4 = diese Galerie ist dort nicht online (nichts tun),
 //      Exit 1 = Zuordnung unklar (abbrechen, nichts abschalten)
+// node bau/pages.mjs loeschen-pruefen --projekt <name> --galerie <id>
+//      Darf offline.yml (aktion loeschen) das ganze Projekt löschen?
+//      Exit 0 = Produktion zeigt diese Galerie, Exit 5 = Produktion zeigt die Offline-Seite
+//      dieser Galerie, Exit 6 = Projekt ohne Produktions-Deployment, Exit 3 = Projekt fehlt
+//      (nichts zu tun), Exit 1 = gehört einer anderen Galerie oder unklar (nichts löschen)
+// node bau/pages.mjs projekt-loeschen --projekt <name>
+//      löscht das Projekt und prüft danach, dass die API es nicht mehr kennt
 //
 // Umgebung: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
 
@@ -38,7 +45,7 @@ export function produktionsStand(projekt) {
   const nachricht = String(d.deployment_trigger?.metadata?.commit_message ?? "").trim();
   const g = /^galerie ([A-Za-z0-9_-]{1,64})$/.exec(nachricht);
   if (g) return { stand: "galerie", galerie: g[1] };
-  if (/^offline [A-Za-z0-9_-]{1,64}$/.test(nachricht)) return { stand: "offline", galerie: null };
+  if (/^offline [A-Za-z0-9_-]{1,64}$/.test(nachricht)) return { stand: "offline", galerie: null, offlineVon: nachricht.slice(8) };
   return { stand: "unbekannt", galerie: null };
 }
 
@@ -132,7 +139,34 @@ export function erzeugeCf({ token, konto, fetchImpl = fetch }) {
     throw new Error("Produktions-Deployment ohne erkennbare Galerie-ID, aus Vorsicht wird nichts abgeschaltet");
   }
 
-  return { projekt, domainSicherstellen, alleDeployments, alteDeploymentsLoeschen, galeriePruefen };
+  /**
+   * Gehört das Projekt dieser Galerie? Nur dann darf offline.yml es ganz löschen.
+   * @returns {Promise<"galerie" | "offline" | "leer" | "fehlt">}
+   */
+  async function loeschenPruefen(name, galerieId) {
+    if (!GALERIE.test(galerieId || "")) throw new Error("Galerie-ID ungültig");
+    const p = await projekt(name);
+    if (!p) return "fehlt";
+    const s = produktionsStand(p);
+    if (s.stand === "galerie" && s.galerie === galerieId) return "galerie";
+    if (s.stand === "offline" && s.offlineVon === galerieId) return "offline";
+    if (s.stand === "leer") return "leer";
+    throw new Error("Projekt gehört einer anderen Galerie oder ist nicht zuzuordnen, es wird nichts gelöscht");
+  }
+
+  /** Löscht das ganze Projekt. Ein schon fehlendes Projekt ist kein Fehler. */
+  async function projektLoeschen(name) {
+    if (!PROJEKT.test(name)) throw new Error("Projektname ungültig");
+    try {
+      await rufe("DELETE", `/${name}`);
+    } catch (e) {
+      if (e.status !== 404) throw e;
+    }
+    if (await projekt(name)) throw new Error(`Projekt ${name} ist nach dem Löschen noch da`);
+    return { geloescht: true };
+  }
+
+  return { projekt, domainSicherstellen, alleDeployments, alteDeploymentsLoeschen, galeriePruefen, loeschenPruefen, projektLoeschen };
 }
 
 async function haupt() {
@@ -169,7 +203,18 @@ async function haupt() {
     console.log(r.grund);
     return r.abschalten ? 0 : 4;
   }
-  console.error("Befehl: projekt-pruefen | domain-sicherstellen | alte-deployments-loeschen | galerie-pruefen");
+  if (befehl === "loeschen-pruefen") {
+    const r = await cf.loeschenPruefen(values.projekt, values.galerie);
+    const text = { galerie: "Produktion zeigt diese Galerie", offline: "Produktion zeigt die Offline-Seite dieser Galerie", leer: "Projekt ohne Produktions-Deployment", fehlt: "Projekt gibt es nicht" }[r];
+    console.log(text);
+    return { galerie: 0, offline: 5, leer: 6, fehlt: 3 }[r];
+  }
+  if (befehl === "projekt-loeschen") {
+    await cf.projektLoeschen(values.projekt);
+    console.log("Projekt gelöscht, die API kennt es nicht mehr");
+    return 0;
+  }
+  console.error("Befehl: projekt-pruefen | domain-sicherstellen | alte-deployments-loeschen | galerie-pruefen | loeschen-pruefen | projekt-loeschen");
   return 2;
 }
 

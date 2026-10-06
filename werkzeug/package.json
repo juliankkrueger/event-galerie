@@ -1,0 +1,14 @@
+{
+  "name": "event-galerie-werkzeug",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Kommandozeile galerie: Galerien anlegen, neu bauen, abschalten, löschen",
+  "type": "module",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "dependencies": {
+    "qrcode": "1.5.4"
+  }
+}

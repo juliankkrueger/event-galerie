@@ -100,7 +100,10 @@ export function erzeugeHandler(daten, optionen = {}) {
   const warte = optionen.warte || standardWarte;
   const bremse = optionen.bremse || erzeugeBremse();
 
-  const ablaufMs = Date.parse(daten.ablauf);
+  // Ohne Ablauf (null) läuft die Galerie nie ab. Ein gesetzter, aber unlesbarer Wert gilt
+  // dagegen als abgelaufen (sicherer Ausfall).
+  const ohneAblauf = daten.ablauf === null || daten.ablauf === undefined;
+  const ablaufMs = ohneAblauf ? Infinity : Date.parse(daten.ablauf);
   const manifestText = JSON.stringify(daten.manifest);
   const titel = daten.manifest && daten.manifest.titel;
   const marke = daten.manifest && daten.manifest.marke;
@@ -108,7 +111,7 @@ export function erzeugeHandler(daten, optionen = {}) {
   // SHA-256 eines bereits als richtig geprüften Codes; spart PBKDF2-Rechenzeit.
   let bekannterCode = null;
 
-  const abgelaufen = () => !(jetzt() < ablaufMs);
+  const abgelaufen = () => !ohneAblauf && !(jetzt() < ablaufMs);
 
   function schluessel() {
     if (!hmacSchluessel) {

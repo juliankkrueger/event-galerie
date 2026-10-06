@@ -1,5 +1,5 @@
 { "id": "ambition", "name": "AMBITION Circle", "eventSeite": "https://ambition-circle.de",
-  "domain": "fotos.ambition-circle.de", "pagesProjekt": "fotos-ambition-circle",
+  "pagesProjekt": "fotos-ambition-circle",
   "farben": { "grund": "#0E2B2E", "flaeche": "#1D373B", "text": "#EDE7D7", "textLeise": "#C9BFAE",
               "akzent": "#C69C7B", "akzentText": "#0E2B2E", "rahmen": "#244A57" },
   "schriften": { "titel": "Italiana", "text": "Open Sans" },

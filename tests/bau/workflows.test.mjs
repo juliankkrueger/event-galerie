@@ -75,3 +75,44 @@ test("offline.yml: Zusammenfassung nur mit Status, Hash-Adresse geschwärzt, kei
   for (const verboten of ["DOMAIN", "PAGES_PROJEKT", "GRUND", "MARKE"]) assert.ok(!zusammenfassung.includes(verboten), `ohne ${verboten}`);
   assert.match(schritt(text, "Offline-Seite deployen"), /set -o pipefail[\s\S]*\| sed -E/);
 });
+
+const inputsVon = (text) => {
+  const block = text.slice(text.indexOf("    inputs:\n"), text.indexOf("\npermissions:"));
+  return [...block.matchAll(/^ {6}([a-z_]+):\n/gm)].map((m) => m[1]);
+};
+
+test("Inputs: höchstens 10 je Workflow, projekt optional mit festem Muster, ablauf optional", async () => {
+  const bauen = await lies("bauen.yml");
+  const offline = await lies("offline.yml");
+  assert.deepEqual(inputsVon(bauen), ["galerie_id", "marke", "titel", "ordner_id", "ablauf", "code_hash_enc", "projekt"]);
+  assert.deepEqual(inputsVon(offline), ["galerie_id", "marke", "projekt", "aktion"]);
+  for (const [n, t] of [["bauen.yml", bauen], ["offline.yml", offline]]) {
+    assert.ok(inputsVon(t).length <= 10, `${n}: GitHub erlaubt höchstens 10 Inputs`);
+    const eingaben = schritt(t, "Eingaben prüfen");
+    assert.ok(eingaben.includes("re_projekt='^fotos-[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$'"), `${n}: Muster für projekt`);
+    assert.match(t, /group: pages-\$\{\{ inputs\.projekt \|\| inputs\.marke \}\}/, `${n}: je Projekt nacheinander`);
+    assert.match(schritt(t, "Marke lesen"), /if \[\[ -n "\$PROJEKT" \]\]; then\n\s+projekt="\$PROJEKT"/);
+  }
+  const projektInput = bauen.slice(bauen.indexOf("      projekt:"), bauen.indexOf("\n\n", bauen.indexOf("      projekt:")));
+  assert.match(projektInput, /required: false/);
+  assert.match(bauen.slice(bauen.indexOf("      ablauf:"), bauen.indexOf("      code_hash_enc:")), /required: false/);
+  assert.match(schritt(bauen, "Eingaben prüfen"), /if \[\[ -n "\$ABLAUF" && "\$ABLAUF" != nie \]\]/);
+  // Mit projekt keine Domain; der Domain-Schritt läuft nur mit Domain.
+  assert.match(schritt(bauen, "Marke lesen"), /projekt="\$PROJEKT"\n\s+domain=""/);
+  assert.match(schritt(bauen, "Domain anhängen, falls sie fehlt"), /if: env\.DOMAIN != ''/);
+});
+
+test("offline.yml loeschen: nur mit projekt, nie ein Markenprojekt, nur eigene Galerie, erst nach Offline-Seite", async () => {
+  const t = await lies("offline.yml");
+  assert.match(t, /type: choice\n\s+options:\n\s+- offline\n\s+- loeschen/);
+  assert.match(t, /default: offline/);
+  assert.match(schritt(t, "Eingaben prüfen"), /AKTION" == loeschen && -z "\$PROJEKT"/);
+  assert.match(schritt(t, "Marke lesen"), /jq -r '\.pagesProjekt' marken\/\*\/marke\.json \| grep -qxF "\$projekt"/);
+  assert.match(schritt(t, "Zuordnung prüfen"), /loeschen-pruefen/);
+  const loeschen = schritt(t, "Projekt löschen");
+  assert.match(loeschen, /if: steps\.projekt\.outputs\.loeschen == 'ja'/);
+  assert.match(loeschen, /projekt-loeschen --projekt "\$PAGES_PROJEKT"/);
+  const pos = ["Zuordnung prüfen", "Offline-Seite deployen", "Ältere Deployments löschen", "Projekt löschen"].map((n) => t.indexOf(`- name: ${n}`));
+  assert.deepEqual([...pos].sort((a, b) => a - b), pos, "Reihenfolge");
+  assert.match(t, /^run-name: \$\{\{ inputs\.aktion \|\| 'offline' \}\} \$\{\{ inputs\.galerie_id \}\}$/m);
+});

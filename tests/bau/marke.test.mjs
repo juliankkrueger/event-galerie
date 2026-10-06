@@ -12,6 +12,35 @@ const kontrast = (a, b) => {
   return (h + 0.05) / (d + 0.05);
 };
 
+test("Marke agentur: ohne Domain, eigene Serif aus marken/schriften mit @font-face, Kontraste ≥ 4,5:1", async () => {
+  const { ladeMarke, schreibeMarke } = await import("../../bau/lib/marke.mjs");
+  const { mkdtemp, rm, stat } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const marken = fileURLToPath(new URL("../../marken/", import.meta.url));
+  const geladen = await ladeMarke(marken, "agentur");
+  const m = geladen.marke;
+  assert.ok(!("domain" in m), "Kunden-Events laufen unter <projekt>.pages.dev");
+  const f = m.farben;
+  for (const [a, b] of [[f.text, f.grund], [f.text, f.flaeche], [f.textLeise, f.flaeche], [f.textLeise, f.grund], [f.akzent, f.grund], [f.akzentText, f.akzent]]) {
+    assert.ok(kontrast(a, b) >= 4.5, `${a} auf ${b}: ${kontrast(a, b).toFixed(2)}`);
+  }
+  for (const v of m.stil.knopfVerlauf) assert.ok(kontrast(v, f.akzentText) >= 4.5, `Knopf ${v}`);
+  const css = markeCss(m);
+  assert.match(css, /@font-face \{[^}]*font-family: "Cormorant Garamond";[^}]*font-weight: 600;[^}]*url\("\/assets\/schriften\/cormorant-garamond-latin-600-normal\.woff2"\)/);
+  assert.match(css, /--schrift-titel: "Cormorant Garamond"/);
+  const tmp = await mkdtemp(join(tmpdir(), "eg-agentur-"));
+  try {
+    await schreibeMarke(tmp, geladen);
+    for (const p of ["assets/schriften/cormorant-garamond-latin-600-normal.woff2", "assets/schriften/OFL-CormorantGaramond.txt", "assets/logo.png", "favicon.ico", "apple-touch-icon.png"]) {
+      assert.ok((await stat(join(tmp, p))).isFile(), p);
+    }
+  } finally {
+    await rm(tmp, { recursive: true, force: true });
+  }
+});
+
 for (const id of ["ambition", "blueprint"]) {
   test(`Marke ${id}: Stil wie die Event-Seite, Verläufe mit Kontrast ≥ 4,5:1`, async () => {
     const m = JSON.parse(await readFile(new URL(`../../marken/${id}/marke.json`, import.meta.url), "utf8"));
@@ -37,4 +66,53 @@ test("Stil: nur geprüfte Werte, kein freier CSS-Text", () => {
   assert.throws(() => stilCss({ irgendwas: 1 }), /unbekannt/);
   assert.throws(() => stilCss({ titelGewicht: 300 }), /titelGewicht/);
   assert.deepEqual(stilCss(undefined), { zeilen: [], regeln: [] });
+});
+
+test("Marke ohne Domain ist gültig, Hintergrund wird geprüft und mit allen Bildern nach /assets/marke/ kopiert", async () => {
+  const { mkdtemp, writeFile: schreibe, readdir, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { testMarke } = await import("./hilfen.mjs");
+  const { ladeMarke, schreibeMarke } = await import("../../bau/lib/marke.mjs");
+  const tmp = await mkdtemp(join(tmpdir(), "eg-marke-"));
+  try {
+    const m = await testMarke(join(tmp, "marken"));
+    delete m.domain;
+    m.hintergrund = { kopf: "kopf.webp", muster: "muster.png" };
+    const ordner = join(tmp, "marken", "testmarke");
+    await schreibe(join(ordner, "marke.json"), JSON.stringify(m));
+    await assert.rejects(ladeMarke(join(tmp, "marken"), "testmarke"), /hintergrund\.kopf: Datei kopf\.webp fehlt/);
+    for (const d of ["kopf.webp", "kopf-1600.jpg", "muster.png", "notiz.txt"]) await schreibe(join(ordner, d), "x");
+    const geladen = await ladeMarke(join(tmp, "marken"), "testmarke");
+    await schreibeMarke(join(tmp, "dist"), geladen);
+    const kopiert = (await readdir(join(tmp, "dist", "assets", "marke"))).sort();
+    assert.ok(kopiert.includes("kopf.webp") && kopiert.includes("kopf-1600.jpg") && kopiert.includes("muster.png"));
+    assert.ok(!kopiert.includes("notiz.txt") && !kopiert.includes("marke.json"));
+    const css = markeCss(m);
+    assert.match(css, /--hintergrund-kopf: url\("\/assets\/marke\/kopf\.webp"\);/);
+    assert.throws(() => markeCss({ ...m, hintergrund: { kopf: "../x.png" } }), /hintergrund\.kopf/);
+    assert.throws(() => markeCss({ ...m, hintergrund: { video: "x.mp4" } }), /unbekannt/);
+    const oeffentlich = JSON.parse(await readFile(join(tmp, "dist", "assets", "marke.json"), "utf8"));
+    assert.deepEqual(oeffentlich.hintergrund, m.hintergrund);
+    assert.ok(!("domain" in oeffentlich));
+  } finally {
+    await rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test("Hintergrund-Varianten: kleines WebP und JPEG gleicher Größe", async () => {
+  const { hintergrundVarianten } = await import("../../marken/marke-css.mjs");
+  const dateien = ["hintergrund-kopf-900.webp", "hintergrund-kopf-1600.webp", "hintergrund-kopf-2560.webp", "hintergrund-kopf-900.jpg", "hintergrund-kopf-2560.jpg", "hintergrund-muster-900.webp", "logo.png"];
+  assert.deepEqual(hintergrundVarianten("hintergrund-kopf-2560.webp", dateien), { klein: "hintergrund-kopf-900.webp", jpg: "hintergrund-kopf-2560.jpg" });
+  assert.deepEqual(hintergrundVarianten("hintergrund-kopf-2560.webp", []), {});
+  assert.deepEqual(hintergrundVarianten("hintergrund-muster-900.webp", dateien), {});
+  const m = JSON.parse(await readFile(new URL("../../marken/ambition/marke.json", import.meta.url), "utf8"));
+  if (m.hintergrund) {
+    const { readdir } = await import("node:fs/promises");
+    const css = markeCss(m, { dateien: await readdir(new URL("../../marken/ambition/", import.meta.url)) });
+    assert.match(css, /--hintergrund-kopf: url\("\/assets\/marke\/hintergrund-kopf-2560\.webp"\);/);
+    assert.match(css, /--hintergrund-kopf-klein: url\("\/assets\/marke\/hintergrund-kopf-900\.webp"\);/);
+    assert.match(css, /--hintergrund-kopf-jpg: url\("\/assets\/marke\/hintergrund-kopf-2560\.jpg"\);/);
+    assert.match(css, /--hintergrund-muster-jpg: url\("\/assets\/marke\/hintergrund-muster-2560\.jpg"\);/);
+  }
 });

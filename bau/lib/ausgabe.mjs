@@ -29,7 +29,7 @@ export function datenModul({ manifest, codeHash, cookieSchluessel, ablauf, galer
   return [
     "// Vom Bau erzeugt (bau/bau.mjs). Nicht bearbeiten, nicht einchecken.",
     `export const galerie = ${j(galerie)};`,
-    `export const ablauf = ${j(ablauf)};`,
+    `export const ablauf = ${j(ablauf ?? null)};`,
     `export const codeHash = ${j(codeHash)};`,
     `export const cookieSchluessel = ${j(cookieSchluessel)};`,
     `export const manifest = ${j(manifest)};`,
@@ -39,9 +39,10 @@ export function datenModul({ manifest, codeHash, cookieSchluessel, ablauf, galer
 
 // Statischer Status für den Startbildschirm. Spart je Besuch einen Function-Aufruf
 // (kontoweites Kontingent). "abgelaufen" rechnet die Seite aus "ablauf"; im Zweifel
-// fragt sie /api/status, die Function bleibt die verbindliche Prüfung.
+// fragt sie /api/status, die Function bleibt die verbindliche Prüfung. Ohne Ablauf fehlt
+// der Schlüssel "ablauf" (die Galerie läuft nie ab).
 export function statusInhalt({ titel, marke, ablauf }) {
-  return `${JSON.stringify({ titel, marke, ablauf })}\n`;
+  return `${JSON.stringify(ablauf ? { titel, marke, ablauf } : { titel, marke })}\n`;
 }
 
 export async function schreibeFesteDateien(ziel) {

@@ -17,6 +17,10 @@ function falscheCf({ projekte = {}, domains = {}, deployments = [] }) {
     const [, name, art, id] = pfad.split("/");
     if (!projekte[name]) return antwort(404, { success: false, errors: [{ code: 8000007, message: "Project not found" }] });
     if (!art && init.method === "GET") return antwort(200, { success: true, result: projekte[name] });
+    if (!art && init.method === "DELETE") {
+      delete projekte[name];
+      return antwort(200, { success: true, result: null });
+    }
     if (art === "domains" && init.method === "GET") return antwort(200, { success: true, result: domains[name] || [] });
     if (art === "domains" && init.method === "POST") {
       const neu = { name: JSON.parse(init.body).name, status: "pending" };
@@ -109,6 +113,29 @@ test("Offline-Prüfung: schon offline, leer, fehlendes Projekt = nichts tun; unk
   assert.equal((await cf.galeriePruefen("fehlt", "A")).abschalten, false);
   await assert.rejects(cf.galeriePruefen("komisch", "A"), /nichts abgeschaltet/);
   await assert.rejects(cf.galeriePruefen("off", "A B"), /Galerie-ID ungültig/);
+});
+
+test("Löschen nur für die eigene Galerie: online, schon offline, leer; fremd und unklar brechen ab", async () => {
+  const projekte = {
+    an: mitNachricht("galerie A"),
+    aus: mitNachricht("offline A"),
+    leer: {},
+    fremd: mitNachricht("galerie B"),
+    fremdaus: mitNachricht("offline B"),
+    komisch: mitNachricht("manuell"),
+  };
+  const { fetchImpl, aufrufe } = falscheCf({ projekte });
+  const cf = erzeugeCf({ token: TOKEN, konto: KONTO, fetchImpl });
+  assert.equal(await cf.loeschenPruefen("an", "A"), "galerie");
+  assert.equal(await cf.loeschenPruefen("aus", "A"), "offline");
+  assert.equal(await cf.loeschenPruefen("leer", "A"), "leer");
+  assert.equal(await cf.loeschenPruefen("weg", "A"), "fehlt");
+  for (const n of ["fremd", "fremdaus", "komisch"]) await assert.rejects(cf.loeschenPruefen(n, "A"), /nichts gelöscht/, n);
+  assert.ok(aufrufe.every((a) => a.startsWith("GET")), "Prüfen darf nichts verändern");
+  assert.deepEqual(await cf.projektLoeschen("an"), { geloescht: true });
+  assert.ok(!("an" in projekte));
+  assert.deepEqual(await cf.projektLoeschen("an"), { geloescht: true }, "schon weg ist kein Fehler");
+  await assert.rejects(cf.projektLoeschen("An; x"), /ungültig/);
 });
 
 test("Andere Galerie in Produktion: offline löscht trotzdem alle Nicht-Produktions-Deployments", async () => {

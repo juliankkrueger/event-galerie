@@ -172,3 +172,24 @@ test("Ungültiges Ablaufdatum gilt als abgelaufen (sicherer Ausfall)", async () 
   const r = await handler({ request: new Request(`${BASIS}/api/manifest`) });
   assert.equal(r.status, 410);
 });
+
+test("Ohne Ablauf (null): nie abgelaufen, auch in 50 Jahren; leerer Text gilt weiter als abgelaufen", async () => {
+  const codeHash = await erzeugeCodeHash("ABCD2345", { iter: 1000 });
+  const uhr = { t: Date.parse("2076-01-01T00:00:00Z") };
+  const daten = {
+    galerie: "g2",
+    ablauf: null,
+    codeHash,
+    cookieSchluessel: randomBytes(32).toString("base64"),
+    manifest: { galerie: "g2", marke: "testmarke", titel: "Ohne Ablauf", kapitel: [], anzahl: 0 },
+  };
+  const handler = erzeugeHandler(daten, { jetzt: () => uhr.t, warte: async () => {} });
+  const rufe = (pfad, init = {}) => handler({ request: new Request(BASIS + pfad, init) });
+  assert.deepEqual(await (await rufe("/api/status")).json(), { titel: "Ohne Ablauf", marke: "testmarke", abgelaufen: false });
+  const z = await rufe("/api/zugang", { method: "POST", body: JSON.stringify({ code: "ABCD2345" }), headers: { "CF-Connecting-IP": "203.0.113.9" } });
+  assert.equal(z.status, 204);
+  const m = await rufe("/api/manifest", { headers: { Cookie: keks(z) } });
+  assert.equal(m.status, 200);
+  const leer = erzeugeHandler({ ...daten, ablauf: "" }, { jetzt: () => uhr.t });
+  assert.equal((await leer({ request: new Request(`${BASIS}/api/manifest`) })).status, 410);
+});

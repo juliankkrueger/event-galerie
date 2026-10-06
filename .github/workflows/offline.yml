@@ -1,5 +1,7 @@
-# Nimmt die Galerie einer Marke vom Netz: deployt die Seite "Keine Galerie online"
-# und löscht danach alle älteren Deployments des Projekts. Vertrag: VERTRAG.md
+# Nimmt eine Galerie vom Netz: deployt die Seite "Keine Galerie online" und löscht danach
+# alle älteren Deployments des Projekts. Mit aktion loeschen wird danach das ganze Pages-Projekt
+# gelöscht (nur mit Input projekt, nur wenn das Projekt nachweislich dieser Galerie gehört, nie
+# ein Projekt einer Marke). Vertrag: VERTRAG.md
 #
 # Abgeschaltet wird nur, wenn das Produktions-Deployment genau diese galerie_id
 # trägt (Commit-Nachricht "galerie <id>" aus bauen.yml). Je Marke gibt es EIN
@@ -9,7 +11,7 @@
 #
 # Das Repo ist öffentlich: Log und Zusammenfassung nennen nur den Status.
 name: offline
-run-name: offline ${{ inputs.galerie_id }}
+run-name: ${{ inputs.aktion || 'offline' }} ${{ inputs.galerie_id }}
 
 on:
   workflow_dispatch:
@@ -22,12 +24,25 @@ on:
         description: Marke (Ordner unter marken/)
         required: true
         type: string
+      projekt:
+        description: Pages-Projekt dieser Galerie (fotos-...); leer = Projekt der Marke
+        required: false
+        default: ""
+        type: string
+      aktion:
+        description: offline (Platzhalter) oder loeschen (Platzhalter, dann ganzes Projekt löschen)
+        required: false
+        default: offline
+        type: choice
+        options:
+          - offline
+          - loeschen
 
 # Keine Rechte auf Workflow-Ebene, nur im Job.
 permissions: {}
 
 concurrency:
-  group: pages-${{ inputs.marke }}
+  group: pages-${{ inputs.projekt || inputs.marke }}
   cancel-in-progress: false
 
 defaults:
@@ -44,6 +59,8 @@ jobs:
     env:
       GALERIE_ID: ${{ inputs.galerie_id }}
       MARKE: ${{ inputs.marke }}
+      PROJEKT: ${{ inputs.projekt }}
+      AKTION: ${{ inputs.aktion || 'offline' }}
       WRANGLER_SEND_METRICS: "false"
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -67,8 +84,15 @@ jobs:
           fehler=0
           re_galerie='^[A-Za-z0-9_-]{1,64}$'
           re_marke='^[a-z0-9][a-z0-9-]{0,39}$'
+          re_projekt='^fotos-[a-z0-9]([a-z0-9-]{0,48}[a-z0-9])?$'
           [[ "$GALERIE_ID" =~ $re_galerie ]] || { echo "::error::galerie_id ungültig"; fehler=1; }
           [[ "$MARKE" =~ $re_marke ]] || { echo "::error::marke ungültig"; fehler=1; }
+          if [[ -n "$PROJEKT" ]]; then
+            [[ "$PROJEKT" =~ $re_projekt ]] || { echo "::error::projekt ungültig"; fehler=1; }
+          fi
+          [[ "$AKTION" == offline || "$AKTION" == loeschen ]] || { echo "::error::aktion ungültig"; fehler=1; }
+          # Ganze Projekte löscht nur, wer das Projekt ausdrücklich nennt.
+          if [[ "$AKTION" == loeschen && -z "$PROJEKT" ]]; then echo "::error::loeschen nur mit projekt"; fehler=1; fi
           exit $fehler
 
       - name: Speicher
@@ -82,12 +106,17 @@ jobs:
         run: |
           datei="marken/$MARKE/marke.json"
           [[ -f "$datei" ]] || { echo "::error::Marke $MARKE fehlt"; exit 1; }
-          projekt="$(jq -r '.pagesProjekt' "$datei")"
-          domain="$(jq -r '.domain' "$datei")"
+          if [[ -n "$PROJEKT" ]]; then
+            projekt="$PROJEKT"
+          else
+            projekt="$(jq -r '.pagesProjekt' "$datei")"
+          fi
           [[ "$projekt" =~ ^[a-z0-9][a-z0-9-]{0,57}$ ]] || { echo "::error::pagesProjekt ungültig"; exit 1; }
-          [[ "$domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || { echo "::error::domain ungültig"; exit 1; }
+          # Projekte der Marken (mit Domain beim Hoster) werden nie gelöscht.
+          if [[ "$AKTION" == loeschen ]] && jq -r '.pagesProjekt' marken/*/marke.json | grep -qxF "$projekt"; then
+            echo "::error::Das Projekt einer Marke wird nie gelöscht"; exit 1
+          fi
           echo "PAGES_PROJEKT=$projekt" >> "$GITHUB_ENV"
-          echo "DOMAIN=$domain" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -100,7 +129,23 @@ jobs:
 
       - name: Zuordnung prüfen
         id: projekt
+        # da=ja: Produktion zeigt diese Galerie (abschalten). da=nein: nichts abzuschalten.
+        # loeschen=ja: das ganze Projekt gehört dieser Galerie und wird am Ende gelöscht.
         run: |
+          if [[ "$AKTION" == loeschen ]]; then
+            set +e
+            grund="$(node bau/pages.mjs loeschen-pruefen --projekt "$PAGES_PROJEKT" --galerie "$GALERIE_ID" 2>&1)"
+            rc=$?
+            set -e
+            echo "$grund"
+            case $rc in
+              0) echo "da=ja" >> "$GITHUB_OUTPUT"; echo "loeschen=ja" >> "$GITHUB_OUTPUT" ;;
+              5|6) echo "da=nein" >> "$GITHUB_OUTPUT"; echo "loeschen=ja" >> "$GITHUB_OUTPUT" ;;
+              3) echo "da=nein" >> "$GITHUB_OUTPUT"; echo "loeschen=schon" >> "$GITHUB_OUTPUT" ;;
+              *) echo "::error::$grund"; exit 1 ;;
+            esac
+            exit 0
+          fi
           set +e
           grund="$(node bau/pages.mjs galerie-pruefen --projekt "$PAGES_PROJEKT" --galerie "$GALERIE_ID" 2>&1)"
           rc=$?
@@ -135,12 +180,20 @@ jobs:
         if: steps.projekt.outputs.da == 'ja' || steps.projekt.outputs.da == 'nein'
         run: node bau/pages.mjs alte-deployments-loeschen --projekt "$PAGES_PROJEKT" --falls-vorhanden
 
+      - name: Projekt löschen
+        # Nur aktion loeschen, nur wenn das Projekt dieser Galerie gehört (Zuordnung oben),
+        # erst nach Offline-Seite und Löschen der älteren Deployments. Prüft danach, dass die
+        # API das Projekt nicht mehr kennt.
+        if: steps.projekt.outputs.loeschen == 'ja'
+        run: node bau/pages.mjs projekt-loeschen --projekt "$PAGES_PROJEKT"
+
       - name: Zusammenfassung
         # Öffentlich lesbar: nur der Status.
         if: always()
         env:
           STATUS: ${{ job.status }}
           DA: ${{ steps.projekt.outputs.da }}
+          LOESCHEN: ${{ steps.projekt.outputs.loeschen }}
         run: |
           {
             echo "## Offline"
@@ -148,6 +201,8 @@ jobs:
             echo "| | |"
             echo "|---|---|"
             if [[ "$STATUS" != success ]]; then echo "| Status | fehlgeschlagen, nichts sicher abgeschaltet |"
-            elif [[ "${DA:-}" == ja ]]; then echo "| Status | abgeschaltet |"
+            elif [[ "$LOESCHEN" == ja ]]; then echo "| Status | Projekt gelöscht |"
+            elif [[ "$LOESCHEN" == schon ]]; then echo "| Status | Projekt gab es nicht mehr |"
+            elif [[ "$DA" == ja ]]; then echo "| Status | abgeschaltet |"
             else echo "| Status | nichts abgeschaltet, diese Galerie war nicht online |"; fi
           } >> "$GITHUB_STEP_SUMMARY"
