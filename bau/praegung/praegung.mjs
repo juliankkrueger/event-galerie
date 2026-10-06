@@ -78,9 +78,13 @@ async function papier(w, h, d, cx, cy, { tiefe = 1, korn = 1, flach = false } = 
   const n = w * h, f = new Float32Array(n);
   for (let i = 0; i < n; i++) f[i] = m[i] / 255;
   const ein = d / 1000;                                    // Maßstab: Bevel skaliert mit dem Medaillon
-  const hoehe = blur(f, w, h, Math.max(1.2, 3.2 * ein));    // weiche Schulter der Prägung
-  const weit = blur(f, w, h, Math.max(3, 14 * ein));        // breiter Schatten / Aufwölbung
-  const fein = blur(rauschen(w, h), w, h, 0.7);             // Papierfaser
+  // Höhenkarte aus zwei Maßstäben: scharfe Kante (klein) plus kurze, weiche Schulter (mittel)
+  const kante = blur(f, w, h, Math.max(0.6, 0.55 * ein));
+  const schulter = blur(f, w, h, Math.max(1.0, 1.6 * ein));
+  const hoehe = new Float32Array(n);
+  for (let i = 0; i < n; i++) hoehe[i] = 0.62 * kante[i] + 0.38 * schulter[i];
+  const weit = blur(f, w, h, Math.max(2, 6 * ein));        // breiter Schatten / Aufwölbung
+  const fein = blur(rauschen(w, h), w, h, 0.55);             // Papierfaser
   const grob = blur(rauschen(w, h, 99), w, h, 6);           // Wolkigkeit im Karton
   const g0 = hex(a.grund), g1 = hex(a["grund-mitte"]);
   const out = Buffer.alloc(n * 3);
@@ -97,7 +101,7 @@ async function papier(w, h, d, cx, cy, { tiefe = 1, korn = 1, flach = false } = 
       const xm = x > 0 ? hoehe[i - 1] : hoehe[i], xp = x < w - 1 ? hoehe[i + 1] : hoehe[i];
       const ym = y > 0 ? hoehe[i - w] : hoehe[i], yp = y < h - 1 ? hoehe[i + w] : hoehe[i];
       const dx = (xp - xm) * 0.5, dy = (yp - ym) * 0.5;
-      const steil = 2.2 * ein * tiefe;
+      const steil = 0.9 * ein * tiefe;
       const nx = -dx * steil * 40, ny = -dy * steil * 40, nz = 1;
       const nl = Math.hypot(nx, ny, nz);
       const licht = (nx * -lx + ny * -ly) / nl;              // >0 zum Licht geneigt
@@ -105,10 +109,10 @@ async function papier(w, h, d, cx, cy, { tiefe = 1, korn = 1, flach = false } = 
       const wx = x > 2 && x < w - 3 ? weit[i + 2] - weit[i - 2] : 0;
       const wy = y > 2 && y < h - 3 ? weit[i + 2 * w] - weit[i - 2 * w] : 0;
       const breit = (-wx * lx - wy * ly) * 9;
-      let k = 1 + licht * 0.30 + breit * 0.22 - hoehe[i] * 0.015;
+      let k = 1 + licht * 0.34 + breit * 0.10 - hoehe[i] * 0.015;
       // Kanten der Prägung minimal glänzend, Tal dunkler
       k += Math.max(0, licht) ** 2 * 0.12;
-      const faser = 1 + (fein[i] * 0.17 + grob[i] * 1.1) * korn;
+      const faser = 1 + (fein[i] * 0.24 + grob[i] * 1.1) * korn;
       R = R * k * faser; G = G * k * faser; B = B * k * faser;
       out[i * 3] = Math.max(0, Math.min(255, R));
       out[i * 3 + 1] = Math.max(0, Math.min(255, G));
@@ -118,7 +122,7 @@ async function papier(w, h, d, cx, cy, { tiefe = 1, korn = 1, flach = false } = 
   return sharp(out, { raw: { width: w, height: h, channels: 3 } });
 }
 
-async function speichern(bild, name, q = 84) {
+async function speichern(bild, name, q = 86) {
   const ziel = path.join(a.aus, name);
   await bild.clone().webp({ quality: q, effort: 6, smartSubsample: true }).toFile(ziel + ".webp");
   await bild.clone().jpeg({ quality: 86, mozjpeg: true, progressive: true }).toFile(ziel + ".jpg");
