@@ -3,7 +3,7 @@
 
 import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
-import { DATEI, markeCss, markeDateien } from "../../marken/marke-css.mjs";
+import { DATEI, dekorDateien, markeCss, markeDateien } from "../../marken/marke-css.mjs";
 
 const ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 // Bilddateien des Markenordners, die bei gesetztem "hintergrund" nach /assets/marke/ gehen.
@@ -59,6 +59,9 @@ export async function ladeMarke(markenDir, id) {
   for (const [k, datei] of Object.entries(fehler.length ? {} : marke.hintergrund || {})) {
     if (!(await stat(join(ordner, datei)).catch(() => null))?.isFile()) fehler.push(`hintergrund.${k}: Datei ${datei} fehlt`);
   }
+  for (const datei of fehler.length ? [] : dekorDateien(marke.dekor)) {
+    if (!(await stat(join(ordner, datei)).catch(() => null))?.isFile()) fehler.push(`dekor: Datei ${datei} fehlt`);
+  }
   if (fehler.length) throw new Error(`marken/${id}/marke.json: ${fehler.join("; ")}`);
   return { marke, ordner };
 }
@@ -67,12 +70,19 @@ export async function ladeMarke(markenDir, id) {
 export function markeOeffentlich(marke) {
   const { id, name, eventSeite, domain, impressum, datenschutz, hintergrund } = marke;
   const gruss = typeof marke.gruss === "string" && marke.gruss.trim() ? marke.gruss.trim().slice(0, 140) : undefined;
-  return { id, name, eventSeite, domain, impressum, datenschutz, hintergrund, ...(gruss ? { gruss } : {}) };
+  const d = marke.dekor;
+  const dekor = d ? {
+    ...(Array.isArray(d.zweige) ? { zweige: d.zweige } : {}),
+    ...(d.band ? { band: { zeile: d.band.zeile, ...(d.band.zeichen ? { zeichen: d.band.zeichen } : {}) } } : {}),
+    ...(d.fusszeichen ? { fusszeichen: d.fusszeichen } : {}),
+    ...(d.claim ? { claim: d.claim } : {}),
+  } : undefined;
+  return { id, name, eventSeite, domain, impressum, datenschutz, hintergrund, ...(gruss ? { gruss } : {}), ...(dekor ? { dekor } : {}) };
 }
 
 export async function schreibeMarke(ziel, { marke, ordner }) {
   await mkdir(join(ziel, "assets"), { recursive: true });
-  const dateien = marke.hintergrund ? (await readdir(ordner)).filter((n) => DATEI.test(n)) : [];
+  const dateien = marke.hintergrund || marke.dekor ? (await readdir(ordner)).filter((n) => DATEI.test(n)) : [];
   await writeFile(join(ziel, "assets", "marke.css"), markeCss(marke, { dateien }));
   await writeFile(join(ziel, "assets", "marke.json"), `${JSON.stringify(markeOeffentlich(marke), null, 2)}\n`);
   for (const [quelle, zielPfad] of markeDateien(marke)) {
@@ -80,7 +90,7 @@ export async function schreibeMarke(ziel, { marke, ordner }) {
     await mkdir(dirname(nach), { recursive: true });
     await copyFile(join(ordner, quelle), nach);
   }
-  if (marke.hintergrund) {
+  if (marke.hintergrund || marke.dekor) {
     const ziel2 = join(ziel, "assets", "marke");
     await mkdir(ziel2, { recursive: true });
     const schonDa = new Set(markeDateien(marke).map(([q]) => q));

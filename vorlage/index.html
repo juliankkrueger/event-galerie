@@ -24,6 +24,9 @@
 
 <!-- Bühnenbild hinter Kopf und Galerie-Kopf: Marken-Hintergrund (--hintergrund-kopf) oder, ohne ihn,
      das erste Foto der Galerie, stark abgedunkelt. Rein dekorativ. -->
+<!-- Ruhige Markenfläche hinter dem ganzen Inhalt (marke.json "dekor"): leise Prägung und Papierkorn. -->
+<div class="grund-flaeche" aria-hidden="true"></div>
+
 <div id="buehnenbild" class="buehnenbild" aria-hidden="true">
   <img id="titelbild" class="titelbild" alt="" decoding="async" hidden>
 </div>
@@ -85,6 +88,17 @@
         <p class="galerie-tipp" id="galerie-tipp">Klick auf den Kreis oben rechts, um ein Foto auszuwählen.</p>
       </div>
     </div>
+    <!-- Helles Band der Marke (marke.json "dekor.band"), wie das Willkommensmotiv am Event. -->
+    <section id="band" class="band" aria-labelledby="band-zeile" hidden>
+      <div class="band-schatten" aria-hidden="true"></div>
+      <img id="band-zweig-1" class="band-zweig band-zweig-1" alt="" decoding="async" hidden>
+      <img id="band-zweig-2" class="band-zweig band-zweig-2" alt="" decoding="async" hidden>
+      <div class="band-inhalt">
+        <h2 id="band-zeile" class="band-zeile"></h2>
+        <img id="band-zeichen" class="band-zeichen" alt="" decoding="async" hidden>
+        <p id="band-ort" class="band-ort" hidden><span class="band-linie" aria-hidden="true"></span><span id="band-ort-text"></span><span class="band-linie" aria-hidden="true"></span></p>
+      </div>
+    </section>
     <div id="leiste" class="leiste" role="region" aria-label="Auswahl" hidden>
       <div id="panel" class="panel" hidden>
         <div class="panel-kopf">
@@ -121,6 +135,10 @@
 </main>
 
 <footer class="fuss">
+  <div id="fuss-marke" class="fuss-marke" hidden>
+    <img id="fuss-zeichen" class="fuss-zeichen" alt="" decoding="async" hidden>
+    <p id="fuss-claim" class="fuss-claim" hidden></p>
+  </div>
   <nav class="fuss-links" aria-label="Rechtliches">
     <a id="link-impressum" href="https://agenturkrueger-digital.de/impressum/" rel="noopener">Impressum</a>
     <a id="link-datenschutz" href="https://agenturkrueger-digital.de/datenschutz/" rel="noopener">Datenschutz</a>

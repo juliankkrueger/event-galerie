@@ -133,11 +133,62 @@ export function markeCss(marke, { dateien = [] } = {}) {
       }
     }
   }
+  zeilen.push(...dekorCss(marke.dekor));
   const stil = stilCss(marke.stil);
   zeilen.push(...stil.zeilen);
   const schriften = Object.entries(titel.dateien || {}).map(([gewicht, datei]) =>
     `@font-face {\n  font-family: "${marke.schriften.titel}";\n  font-style: normal;\n  font-weight: ${gewicht};\n  font-display: swap;\n  src: url("/assets/schriften/${datei}") format("woff2");\n}\n`);
   return `/* erzeugt aus marken/${marke.id}/marke.json */\n${schriften.join('')}:root {\n${zeilen.join('\n')}\n}\n${stil.regeln.join('')}`;
+}
+
+// Optionaler Block "dekor" in marke.json: Bildsprache der Marke rund um die Fotos.
+//   verlauf   [innen, mitte, aussen]  Hex-Farben für den ruhigen Seitenverlauf
+//   flaeche   Bilddatei, sehr leise hinter dem Inhalt (z. B. die Prägung)
+//   korn      nahtlose Rauschkachel (Papierkorn)
+//   zweige    [datei, datei]  Strichzeichnungen an den Tagesüberschriften
+//   band      { grund, text, linie, leinen, schatten, zeichen, zeile }  helles Band unter dem Kopf
+//   fusszeichen, claim   Logo und Satz im Fuß
+export const DEKOR_SCHLUESSEL = ['verlauf', 'flaeche', 'korn', 'zweige', 'band', 'fusszeichen', 'claim'];
+const BAND_SCHLUESSEL = ['grund', 'text', 'linie', 'leinen', 'schatten', 'zeichen', 'zeile'];
+export function dekorDateien(dekor) {
+  if (!dekor) return [];
+  const d = [];
+  if (dekor.flaeche) d.push(dekor.flaeche);
+  if (dekor.korn) d.push(dekor.korn);
+  if (Array.isArray(dekor.zweige)) d.push(...dekor.zweige);
+  if (dekor.band) for (const k of ['leinen', 'schatten', 'zeichen']) if (dekor.band[k]) d.push(dekor.band[k]);
+  if (dekor.fusszeichen) d.push(dekor.fusszeichen);
+  return d;
+}
+function dekorCss(dekor) {
+  if (dekor === undefined) return [];
+  if (!dekor || typeof dekor !== 'object' || Array.isArray(dekor)) throw new Error('marke.json: dekor muss ein Objekt sein');
+  for (const k of Object.keys(dekor)) if (!DEKOR_SCHLUESSEL.includes(k)) throw new Error(`marke.json: dekor.${k} ist unbekannt`);
+  for (const f of dekorDateien(dekor)) if (!DATEI.test(f || '')) throw new Error(`marke.json: dekor-Datei "${f}" ist kein gültiger Dateiname`);
+  const url = (f) => `url("/assets/marke/${f}")`;
+  const z = [];
+  if (dekor.verlauf !== undefined) {
+    if (!Array.isArray(dekor.verlauf) || dekor.verlauf.length !== 3 || !dekor.verlauf.every((c) => HEX.test(c))) throw new Error('marke.json: dekor.verlauf braucht drei #RRGGBB');
+    const [i, m, a] = dekor.verlauf;
+    z.push(`  --dekor-verlauf: radial-gradient(130% 95% at 72% 8%, ${i} 0%, ${m} 52%, ${a} 100%);`);
+  }
+  if (dekor.flaeche) z.push(`  --dekor-flaeche: ${url(dekor.flaeche)};`);
+  if (dekor.korn) z.push(`  --dekor-korn: ${url(dekor.korn)};`);
+  if (dekor.zweige !== undefined) {
+    if (!Array.isArray(dekor.zweige) || dekor.zweige.length < 1 || dekor.zweige.length > 4) throw new Error('marke.json: dekor.zweige braucht 1 bis 4 Dateien');
+  }
+  if (dekor.band !== undefined) {
+    const b = dekor.band;
+    if (!b || typeof b !== 'object' || Array.isArray(b)) throw new Error('marke.json: dekor.band muss ein Objekt sein');
+    for (const k of Object.keys(b)) if (!BAND_SCHLUESSEL.includes(k)) throw new Error(`marke.json: dekor.band.${k} ist unbekannt`);
+    for (const k of ['grund', 'text', 'linie']) if (!HEX.test(b[k] || '')) throw new Error(`marke.json: dekor.band.${k} fehlt oder ist kein #RRGGBB`);
+    if (typeof b.zeile !== 'string' || !b.zeile.trim() || b.zeile.length > 80) throw new Error('marke.json: dekor.band.zeile fehlt oder ist zu lang');
+    z.push(`  --band-grund: ${b.grund};`, `  --band-text: ${b.text};`, `  --band-linie: ${b.linie};`);
+    if (b.leinen) z.push(`  --band-leinen: ${url(b.leinen)};`);
+    if (b.schatten) z.push(`  --band-schatten: ${url(b.schatten)};`);
+  }
+  if (dekor.claim !== undefined && (typeof dekor.claim !== 'string' || dekor.claim.length > 120)) throw new Error('marke.json: dekor.claim ist zu lang');
+  return z;
 }
 
 // [Quelldatei relativ zu marken/<id>/, Zielpfad im Deployment]

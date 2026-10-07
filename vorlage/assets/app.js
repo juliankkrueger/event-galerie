@@ -2,7 +2,7 @@
 import {
   bilderFlach, bildHandy, bildMitSitzung, codeAusHash, codeFormGueltig, codeFormHinweis, codeNormalisieren, datumLang, eventSeiteAusHost,
   fotos, galerieLink, groesse, httpsAdresse, intentAdresse, namensVergeber, paketeBilden, retryAfterSekunden, seitenverhaeltnis, wartezeitText,
-  sitzungsWert, zahl, zeilenBilden, zipName, zipTeileBilden, ZIP_MAX_BILDER, ZIP_MAX_BYTES, ZIP_MAX_BYTES_SPEICHER, ZIP_MAX_BYTES_SPEICHER_HANDY,
+  sitzungsWert, tagDatumText, tageGliedern, zahl, zeilenBilden, zipName, zipTeileBilden, ZIP_MAX_BILDER, ZIP_MAX_BYTES, ZIP_MAX_BYTES_SPEICHER, ZIP_MAX_BYTES_SPEICHER_HANDY,
 } from './werkzeuge.js';
 import {
   blobSpeichern, dateiauswahlOeffnen, dienstAnmelden, inDateiSchreiben, originalAlsBlob,
@@ -56,11 +56,53 @@ function farbschemaSetzen() {
 // Links aus index.html stehen und die Event-Seite wird aus der Domain abgeleitet (fotos.x.de -> x.de).
 let eventSeite = eventSeiteAusHost(location.hostname);
 let markenGruss = '';
+let dekor = null;
+let untertitelText = '';
+const DEKOR_DATEI = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+const dekorPfad = (f) => (DEKOR_DATEI.test(f || '') ? `/assets/marke/${f}` : '');
 function setzeGruss() {
   const el = $('galerie-gruss');
   if (!el) return;
+  // Mit Band steht der Dank dort, nicht doppelt im Kopf
+  const imBand = Boolean(dekor?.band);
   el.textContent = markenGruss;
-  el.hidden = !markenGruss;
+  el.hidden = !markenGruss || imBand;
+}
+function bildSetzen(id, datei) {
+  const bild = $(id);
+  const pfad = dekorPfad(datei);
+  if (!bild || !pfad) return false;
+  bild.src = pfad;
+  bild.hidden = false;
+  return true;
+}
+function dekorSetzen() {
+  if (!dekor) return;
+  document.documentElement.classList.add('mit-dekor');
+  const band = dekor.band;
+  if (band && typeof band.zeile === 'string' && band.zeile.trim()) {
+    $('band-zeile').textContent = band.zeile.trim().slice(0, 80);
+    bildSetzen('band-zeichen', band.zeichen);
+    if ($('band-zeichen').hidden === false) $('band-zeichen').alt = '';
+    const zweige = Array.isArray(dekor.zweige) ? dekor.zweige : [];
+    bildSetzen('band-zweig-1', zweige[0]);
+    bildSetzen('band-zweig-2', zweige[1] || zweige[0]);
+    $('band').hidden = false;
+  }
+  if (bildSetzen('fuss-zeichen', dekor.fusszeichen) || dekor.claim) {
+    if (typeof dekor.claim === 'string' && dekor.claim.trim()) {
+      $('fuss-claim').textContent = dekor.claim.trim().slice(0, 120);
+      $('fuss-claim').hidden = false;
+    }
+    $('fuss-marke').hidden = false;
+  }
+  bandOrtSetzen();
+  setzeGruss();
+}
+function bandOrtSetzen() {
+  if (!$('band-ort')) return;
+  $('band-ort-text').textContent = untertitelText;
+  $('band-ort').hidden = !untertitelText;
 }
 
 async function markeLaden() {
@@ -76,6 +118,10 @@ async function markeLaden() {
     if (typeof m.gruss === 'string' && m.gruss.trim()) {
       markenGruss = m.gruss.trim().slice(0, 140);
       setzeGruss();
+    }
+    if (m.dekor && typeof m.dekor === 'object') {
+      dekor = m.dekor;
+      dekorSetzen();
     }
   } catch {
     // Fuß und Event-Link bleiben wie in index.html
@@ -443,6 +489,33 @@ async function manifestLaden() {
 
 // ---------- Galerie ----------
 
+// Tagesüberschrift wie auf den Tagesablaufkarten: „Tag 1“, Wochentag groß, Datum, Haarlinie, Zweig.
+function tagKopfBauen(tag, zweige) {
+  const kopf = el('div', 'tag-kopf');
+  if (zweige.length) {
+    const z = el('img', `tag-zweig tag-zweig-${tag.tagNr % 2 ? 'rechts' : 'links'}`);
+    z.src = zweige[(tag.tagNr - 1) % zweige.length];
+    z.alt = '';
+    z.decoding = 'async';
+    z.loading = 'lazy';
+    z.setAttribute('aria-hidden', 'true');
+    kopf.append(z);
+  }
+  const text = el('div', 'tag-kopftext');
+  text.append(el('p', 'tag-ober', `Tag ${tag.tagNr}`));
+  const h2 = el('h2', 'titel tag-titel', tag.tag);
+  text.append(h2);
+  const datum = tagDatumText(tag.datum);
+  if (datum) text.append(el('p', 'tag-datum', datum));
+  kopf.append(text, el('span', 'tag-linie'));
+  return kopf;
+}
+function kapitelLinkText(tag, titel) {
+  const tagZahl = tag.datum ? `${Number(tag.datum.slice(8, 10))}.` : '';
+  const kurz = `${tag.tag.slice(0, 2)}${tagZahl ? ` ${tagZahl}` : ''}`;
+  return tag.teil ? `${kurz} · ${tag.teil}` : kurz || titel || 'Fotos';
+}
+
 function el(tag, klasse, text) {
   const e = document.createElement(tag);
   if (klasse) e.className = klasse;
@@ -485,6 +558,8 @@ function galerieAufbauen(manifest) {
   $('galerie-titel').textContent = manifest.titel || 'Fotogalerie';
   const untertitel = typeof manifest.untertitel === 'string' ? manifest.untertitel.trim().slice(0, 120) : '';
   $('galerie-oberzeile').textContent = untertitel || 'Fotogalerie';
+  untertitelText = untertitel;
+  bandOrtSetzen();
   setzeGruss();
   $('galerie-tipp').textContent = zustand.touch
     ? 'Tippe auf den Kreis, um Fotos auszuwählen.'
@@ -506,19 +581,26 @@ function galerieAufbauen(manifest) {
   liste.replaceChildren();
   behaelter.replaceChildren();
   zustand.kacheln.clear();
-  const nummern = kapitelMitBildern.length > 1;
+  const gliederung = kapitelMitBildern.length > 1 ? tageGliedern(manifest.kapitel || []) : null;
+  const nummern = kapitelMitBildern.length > 1 && !gliederung;
+  const zweige = Array.isArray(dekor?.zweige) ? dekor.zweige.map(dekorPfad).filter(Boolean) : [];
 
   let lfd = 0;
   (manifest.kapitel || []).forEach((k, ki) => {
     if (!k.bilder?.length) return;
     lfd += 1;
+    const tag = gliederung?.[ki] || null;
+    if (tag?.neuerTag) behaelter.append(tagKopfBauen(tag, zweige));
     const bilderK = zustand.bilder.filter((b) => b.kapitel === ki);
-    const abschnitt = el('section', 'kapitel');
+    const abschnitt = el('section', tag ? 'kapitel kapitel-teil' : 'kapitel');
     abschnitt.id = `kapitel-${ki + 1}`;
     abschnitt.setAttribute('aria-labelledby', `kapitel-${ki + 1}-titel`);
     const kopf = el('div', 'kapitel-kopf');
-    const h2 = el('h2', 'titel kapitel-titel', k.titel || 'Fotos');
+    const h2 = tag
+      ? el('h3', 'kapitel-titel kapitel-teiltitel', tag.teilText || tag.tag)
+      : el('h2', 'titel kapitel-titel', k.titel || 'Fotos');
     h2.id = `kapitel-${ki + 1}-titel`;
+    if (tag) h2.setAttribute('aria-label', [tag.tag, tag.teilText].filter(Boolean).join(', '));
     const anzahl = el('span', 'kapitel-anzahl', fotos(bilderK.length));
     const kopfText = el('div', 'kapitel-kopftext');
     if (nummern) {
@@ -549,7 +631,7 @@ function galerieAufbauen(manifest) {
       nr.setAttribute('aria-hidden', 'true');
       a.append(nr);
     }
-    a.append(document.createTextNode(k.titel || 'Fotos'));
+    a.append(document.createTextNode(tag ? kapitelLinkText(tag, k.titel) : k.titel || 'Fotos'));
     li.append(a);
     liste.append(li);
   });

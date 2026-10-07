@@ -7,5 +7,14 @@
             "knopfVerlauf": ["#F4CFC0", "#C69C7B", "#B9836A"], "titelVerlauf": ["#F4CFC0", "#C69C7B", "#B9836A"] },
   "logo": "logo.png", "favicon": { "ico": "favicon.ico", "png32": "favicon-32.png", "png192": "favicon-192.png", "apple": "apple-touch-icon.png" },
   "impressum": "https://agenturkrueger-digital.de/impressum/", "datenschutz": "https://agenturkrueger-digital.de/datenschutz/",
+  "dekor": {
+    "verlauf": ["#244A57", "#1D373B", "#132A2E"],
+    "flaeche": "hintergrund-kopf-breit-1920.webp",
+    "korn": "korn.png",
+    "zweige": ["zweig-1.webp", "zweig-2.webp"],
+    "band": { "grund": "#B6BBA1", "text": "#3B4233", "linie": "#7E8570", "leinen": "band-leinen.webp", "schatten": "band-schatten.webp", "zeichen": "lockup-oliv.svg", "zeile": "Danke, dass du dabei warst" },
+    "fusszeichen": "lockup-kupfer.svg",
+    "claim": "Aus Wurzeln wächst Freiheit."
+  },
   "gruss": "Danke, dass du dabei warst.",
   "hintergrund": { "kopf": "hintergrund-kopf-breit-3840.webp", "hoch": "hintergrund-kopf-hoch-1290.webp" } }

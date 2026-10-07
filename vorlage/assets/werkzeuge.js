@@ -353,3 +353,52 @@ export function zipName(titel, teil, teileGesamt) {
   const basis = dateinameSaeubern(`${titel || 'Galerie'} Fotos`);
   return teileGesamt > 1 ? `${basis} Teil ${teil} von ${teileGesamt}.zip` : `${basis}.zip`;
 }
+
+// Kapitel nach Tagen gliedern, wenn jeder Kapiteltitel mit einem Wochentag beginnt
+// („Mittwoch · Tag“, „Mittwoch · Abend“). Das Datum eines Tages kommt aus den Aufnahmezeiten
+// (häufigstes Datum mit passendem Wochentag). Ergebnis je Kapitelindex oder null, wenn nicht gliederbar.
+const WOCHENTAGE = ['sonntag', 'montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag'];
+const TAG_MUSTER = /^\s*(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)\b\s*(?:[·•\-\u2013\u2014,:|/]\s*)?(.*)$/i;
+const TEIL_TEXT = { tag: 'Am Tag', morgen: 'Am Morgen', mittag: 'Am Mittag', nachmittag: 'Am Nachmittag', abend: 'Am Abend', nacht: 'In der Nacht' };
+export function tageGliedern(kapitel) {
+  if (!Array.isArray(kapitel)) return null;
+  const mitBildern = kapitel.map((k, i) => ({ k, i })).filter(({ k }) => k?.bilder?.length);
+  if (!mitBildern.length) return null;
+  const treffer = mitBildern.map(({ k }) => TAG_MUSTER.exec(k.titel || ''));
+  if (treffer.some((m) => !m)) return null;
+  const ergebnis = kapitel.map(() => null);
+  let vorher = null;
+  let nr = 0;
+  const tagDaten = new Map();
+  mitBildern.forEach(({ k, i }, j) => {
+    const wt = treffer[j][1].toLowerCase();
+    const teil = treffer[j][2].trim();
+    const zaehler = tagDaten.get(wt) || new Map();
+    for (const b of k.bilder) {
+      const d = typeof b.aufnahme === 'string' ? b.aufnahme.slice(0, 10) : '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const [y, m, t] = d.split('-').map(Number);
+      if (WOCHENTAGE[new Date(Date.UTC(y, m - 1, t)).getUTCDay()] !== wt) continue;
+      zaehler.set(d, (zaehler.get(d) || 0) + 1);
+    }
+    tagDaten.set(wt, zaehler);
+    const neuerTag = wt !== vorher;
+    if (neuerTag) nr += 1;
+    vorher = wt;
+    ergebnis[i] = { tag: wt[0].toUpperCase() + wt.slice(1), teil, teilText: TEIL_TEXT[teil.toLowerCase()] || teil, neuerTag, tagNr: nr };
+  });
+  for (const e of ergebnis) {
+    if (!e) continue;
+    const zaehler = tagDaten.get(e.tag.toLowerCase());
+    const beste = [...(zaehler || new Map())].sort((a, b) => b[1] - a[1])[0];
+    e.datum = beste ? beste[0] : null;
+  }
+  return ergebnis;
+}
+
+// „23. September 2026“ aus „2026-09-23“ (ohne Zeitzonenverschiebung)
+export function tagDatumText(d) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return '';
+  const [y, m, t] = d.split('-').map(Number);
+  return new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, t)));
+}
