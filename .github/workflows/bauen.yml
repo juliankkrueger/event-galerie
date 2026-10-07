@@ -258,8 +258,9 @@ jobs:
         run: |
           basis="https://$PAGES_PROJEKT.pages.dev"
           ok=0
-          # Ein neues Projekt braucht für <projekt>.pages.dev manchmal etwas länger (bis 3 min).
-          for _ in $(seq 1 36); do
+          # Ein neues Projekt braucht für <projekt>.pages.dev manchmal mehrere Minuten (522), gemessen
+          # 07.10.2026 über 3 min. Deshalb bis 10 min warten.
+          for _ in $(seq 1 120); do
             if status="$(curl -fsS --max-time 15 "$basis/api/status")" \
               && jq -e --arg t "$TITEL" '.titel == $t and .abgelaufen == false' <<<"$status" >/dev/null; then
               ok=1; break
