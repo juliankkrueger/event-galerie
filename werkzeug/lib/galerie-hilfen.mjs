@@ -83,7 +83,7 @@ export function falscherCode(code) {
  * Abnahme gegen die Live-Adresse: Status 200, falscher Code 401, richtiger Code 204, Manifest-Anzahl
  * gleich Bericht, drei Stichproben-Originale mit md5 gleich Manifest.
  */
-export async function abnahme({ basis, titel, code, erwarteteAnzahl, stichproben = 3, protokoll = () => {} }) {
+export async function abnahme({ basis, titel, code, erwarteteAnzahl, stichproben = 3, warteMs = Number(process.env.EVENT_GALERIE_ABNAHME_WARTE_MS) || 20000, protokoll = () => {} }) {
   const ergebnis = { status: null, falsch: null, richtig: null, anzahl: null, stichproben: [] };
   await warteAufStatus(basis, titel);
   ergebnis.status = 200;
@@ -112,20 +112,30 @@ export async function abnahme({ basis, titel, code, erwarteteAnzahl, stichproben
   protokoll(`  Manifest ${manifest.anzahl} Bilder = Bericht`);
   const auswahl = [...bilder].sort(() => Math.random() - 0.5).slice(0, stichproben);
   const sitzung = randomBytes(16).toString("hex");
+  // Direkt nach dem Deploy liefert Cloudflare frische Pfade an manchen Standorten noch nicht aus
+  // (dann kommt die Startseite mit 200 text/html). Deshalb je Original bis zu 4 Versuche mit Pause;
+  // erst eine bleibende Abweichung ist ein Fehler. Gemessen 07.10.2026: nach 1 bis 2 Minuten stimmt alles.
   for (const b of auswahl) {
-    const md5 = createHash("md5");
+    let ok = false;
     let bytes = 0;
-    for (const teil of b.o.teile) {
-      const r = await holen(`${basis}${teil}?s=${sitzung}`, { zeitMs: 300000 });
-      if (r.status !== 200) throw new WerkzeugFehler(`Original-Teil liefert ${r.status}`);
-      const daten = Buffer.from(await r.arrayBuffer());
-      md5.update(daten);
-      bytes += daten.length;
+    let typ = "";
+    for (let versuch = 0; versuch < 4 && !ok; versuch += 1) {
+      if (versuch) await new Promise((fertig) => setTimeout(fertig, warteMs * versuch));
+      const md5 = createHash("md5");
+      bytes = 0;
+      for (const teil of b.o.teile) {
+        const r = await holen(`${basis}${teil}?s=${sitzung}${versuch}`, { zeitMs: 300000 });
+        typ = r.headers.get("content-type") || "";
+        if (r.status !== 200) { bytes = -1; break; }
+        const daten = Buffer.from(await r.arrayBuffer());
+        md5.update(daten);
+        bytes += daten.length;
+      }
+      ok = bytes === b.o.bytes && md5.digest("hex") === b.o.md5;
+      if (!ok && versuch < 3) protokoll(`  Stichprobe noch nicht verteilt (${typ || "ohne Typ"}), neuer Versuch`);
     }
-    const ist = md5.digest("hex");
-    const ok = ist === b.o.md5 && bytes === b.o.bytes;
     ergebnis.stichproben.push({ md5: ok, bytes });
-    if (!ok) throw new WerkzeugFehler(`Stichprobe: md5 oder Größe des Originals weicht vom Manifest ab`);
+    if (!ok) throw new WerkzeugFehler(`Stichprobe: md5 oder Größe des Originals weicht vom Manifest ab (${typ || "ohne Typ"}, auch nach 4 Versuchen)`);
   }
   protokoll(`  ${auswahl.length} Stichproben-Originale md5 = Manifest (${(ergebnis.stichproben.reduce((s, x) => s + x.bytes, 0) / 1e6).toFixed(1)} MB)`);
   return ergebnis;

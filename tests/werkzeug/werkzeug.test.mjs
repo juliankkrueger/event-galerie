@@ -100,6 +100,7 @@ before(async () => {
     EVENT_GALERIE_TOKENINFO: `${basis}/tokeninfo`,
     EVENT_GALERIE_PAGES_URL: `${basis}/p/{projekt}`,
     EVENT_GALERIE_TAKT_MS: "5",
+    EVENT_GALERIE_ABNAHME_WARTE_MS: "5",
     EVENT_GALERIE_REPO: "beispiel/event-galerie",
   };
 });
