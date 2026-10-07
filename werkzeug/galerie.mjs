@@ -195,9 +195,20 @@ async function befehlNeu(e, gh, pos, w) {
     throw new WerkzeugFehler(`Galerie ${projekt} gibt es schon`, { hinweis: `galerie neu-bauen ${projekt}` });
   }
 
-  const { holeToken } = await vorbedingungen(e, { google: true, schluessel: true, gh });
-  const drive = erzeugeDriveWerkzeug({ api: e.driveApi, holeToken, protokoll: log });
-  const konfig = await ladeKonfig(e, { ablageFinden: () => ablageFinden(drive) });
+  await vorbedingungen(e, { schluessel: true, gh });
+  // Google nur für Prüfen, Zählen und Kopieren. Die Anmeldung läuft im Workspace nach einigen
+  // Stunden ab; liegt der Ordner schon in der Geteilten Ablage, geht es auch ohne sie (der Bau
+  // liest Drive über das Dienstkonto auf GitHub).
+  let drive = null;
+  try {
+    const { holeToken } = await vorbedingungen(e, { github: false, google: true });
+    drive = erzeugeDriveWerkzeug({ api: e.driveApi, holeToken, protokoll: log });
+  } catch (f) {
+    log("Hinweis: Google-Anmeldung fehlt oder ist abgelaufen. Der Ordner wird nicht vorab geprüft");
+    log("  und nicht kopiert, er muss in der Geteilten Ablage liegen (sonst meldet der Bau „Ordner nicht gefunden“).");
+    log("  Erneuern: gcloud auth login --enable-gdrive-access");
+  }
+  const konfig = drive ? await ladeKonfig(e, { ablageFinden: () => ablageFinden(drive) }) : await ladeKonfig(e, { ablageFinden: async () => { throw new WerkzeugFehler("Erste Einrichtung braucht die Google-Anmeldung (gcloud auth login --enable-gdrive-access)"); } });
 
   // Belegt? Eine fremde Galerie unter derselben Adresse nie überschreiben.
   const belegt = await fetch(`${basisUrl(e.pagesUrl, projekt)}/status.json`, { signal: AbortSignal.timeout(15000) }).catch(() => null);
@@ -205,11 +216,12 @@ async function befehlNeu(e, gh, pos, w) {
     throw new WerkzeugFehler(`Unter ${projekt}.pages.dev läuft schon eine Galerie, die nicht im Register steht`);
   }
 
+  let ordner = quelle;
+  if (drive) {
   log(`Drive-Ordner prüfen`);
   const info = await drive.info(quelle);
   if (info.mimeType !== "application/vnd.google-apps.folder") throw new WerkzeugFehler("Der Link zeigt nicht auf einen Ordner");
   if (info.trashed) throw new WerkzeugFehler("Der Ordner liegt im Papierkorb");
-  let ordner = quelle;
   if (info.driveId === konfig.ablage) {
     log("  liegt in der Geteilten Ablage");
   } else {
@@ -223,6 +235,7 @@ async function befehlNeu(e, gh, pos, w) {
   const zahl = await drive.zaehle(ordner);
   log(`  ${zahl.bilder} Fotos, ${(zahl.bytes / 1e9).toFixed(2)} GB`);
   if (!zahl.bilder) throw new WerkzeugFehler("Im Ordner liegen keine Fotos (JPG, PNG, HEIC)");
+  }
 
   const id = randomUUID();
   const code = zufallsCode(8, (n) => randomBytes(n));

@@ -228,7 +228,8 @@ test("Vorbedingungen: gh abgemeldet, Schlüssel fehlt, gcloud ohne Drive-Recht, 
   assert.equal(r.code, 1);
   assert.match(r.stderr, /gh ist nicht angemeldet \(gh auth login\)/);
   assert.match(r.stderr, /Galerie-Schlüssel fehlt im Schlüsselbund/);
-  assert.match(r.stderr, /ohne Drive-Recht \(gcloud auth login --enable-gdrive-access\)/);
+  // Google ist keine harte Vorbedingung mehr (Anmeldung läuft im Workspace ab); ohne sie wird nur nicht geprüft
+  assert.doesNotMatch(r.stderr, /ohne Drive-Recht/);
   assert.equal((await leseZustand(zustand)).dispatches.length, 0, "nichts gestartet");
   const falsch = await galerie(["neu", "https://example.org/x", "--titel", "T"]);
   assert.equal(falsch.code, 1);
