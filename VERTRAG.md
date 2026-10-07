@@ -107,8 +107,9 @@ Ohne Ablauf fehlt `ablauf` im Manifest. `w`/`hoehe` sind die Maße nach Ausricht
 /status.json
   Cache-Control: no-cache
 /assets/*
-  Cache-Control: public, max-age=3600
+  Cache-Control: no-cache
 ```
+`no-cache` für /assets/*: Der Browser fragt bei jedem Aufruf per ETag nach (meist 304). Sonst mischt er nach einem Neubau bis zu einer Stunde alte Skripte und Stile mit neuem HTML (07.10.2026 bei Julian beobachtet).
 Keine robots.txt mit Disallow (hebelt noindex aus). `/b/*` ist `private`. **Pages hält jede abgerufene Datei im Edge-Cache, auch nachdem ein neues Deployment sie nicht mehr enthält, und unabhängig von `Cache-Control`** (gemessen 05.10.2026: `public`, `private` mit `CDN-Cache-Control: no-store` und `no-store` lieferten nach dem Ersetzen alle `cf-cache-status: HIT`, Alter über 80 Minuten). Leeren kann die Agentur diesen Cache bei pages.dev und der CNAME-Domain nicht. Der Cache-Schlüssel enthält aber die Query (gleicher Pfad mit `?x=1` lieferte die Startseite). Darum hängt die Oberfläche an **jeden** Fotopfad `?s=<128 Bit Zufall je Seitenansicht>` an (`mitSitzung` in `werkzeuge.js`); die nackten Pfade aus dem Manifest ruft sie nie ab.
 
 ### `bericht.json`

@@ -19,7 +19,7 @@ export const HEADERS = `/*
 /status.json
   Cache-Control: no-cache
 /assets/*
-  Cache-Control: public, max-age=3600
+  Cache-Control: no-cache
 `;
 
 export const ROUTES = { version: 1, include: ["/api/*"], exclude: [] };
