@@ -145,5 +145,24 @@ export function erzeugeDriveWerkzeug({ api, holeToken, fetchImpl = fetch, parall
     return stand;
   }
 
-  return { info, kinder, zaehle, ablagen, ordnerIn, kopiereBaum };
+  /**
+   * Gibt dem Bau-Dienstkonto Leserecht auf genau diesen Ordner (ohne Benachrichtigung).
+   * Hat es schon ein Recht (direkt oder geerbt), passiert nichts. Rückgabe: "neu" oder "schon da".
+   */
+  async function freigeben(ordner, email) {
+    const r = await rufe(`/files/${ordner}/permissions?supportsAllDrives=true&fields=${q("permissions(emailAddress,role)")}`);
+    if ((r.permissions || []).some((p) => (p.emailAddress || "").toLowerCase() === email.toLowerCase())) return "schon da";
+    try {
+      await rufe(`/files/${ordner}/permissions?supportsAllDrives=true&sendNotificationEmail=false&fields=id`, {
+        method: "POST",
+        body: { type: "user", role: "reader", emailAddress: email },
+      });
+    } catch (e) {
+      if (e.status === 403) throw new WerkzeugFehler("Freigabe für das Dienstkonto verweigert", { hinweis: "In der Geteilten Ablage braucht es mindestens „Content-Manager“, und Teilen mit Personen außerhalb muss erlaubt sein" });
+      throw e;
+    }
+    return "neu";
+  }
+
+  return { info, kinder, zaehle, ablagen, ordnerIn, kopiereBaum, freigeben };
 }

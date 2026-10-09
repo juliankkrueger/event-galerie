@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, beforeEach, test } from "node:test";
@@ -16,6 +16,7 @@ import { PROJEKT_MUSTER, falscherCode, gaesteText, projektName, slug } from "../
 import { ausZip, baueZip } from "../../werkzeug/lib/zip.mjs";
 import { ABLAGE, TEST_SCHLUESSEL, TEST_TOKEN, leseZustand, legeProgrammeAn, neuerZustand, schreibeZustand, starteServer, testBilder } from "./attrappen.mjs";
 
+const DIENSTKONTO = "event-galerie@beispiel-projekt.iam.gserviceaccount.com";
 const GALERIE = fileURLToPath(new URL("../../werkzeug/galerie", import.meta.url));
 
 test("Ordner-ID aus Drive-Links und nackter ID", () => {
@@ -164,14 +165,19 @@ test("neu: Ordner außerhalb der Ablage wird kopiert, Bau gestartet, Bericht gel
   assert.equal(r2.code, 0, r2.alles);
   assert.equal((await leseZustand(zustand)).drive.kopien, 3);
   assert.match(r2.stdout, /0 kopiert, 3 schon da/);
+  assert.match(r.stdout, /kein Dienstkonto in der Konfiguration/, "ohne Dienstkonto nur ein Hinweis");
 });
 
 test("neu: Ordner in der Ablage wird nicht kopiert, Projekt vorgegeben, Rückfall ohne return_run_details", async () => {
   const z0 = await leseZustand(zustand);
   await schreibeZustand(zustand, { ...z0, ohneRunDetails: true });
+  const kd = join(tmp, "konfig", "konfig.json");
+  await writeFile(kd, JSON.stringify({ ...JSON.parse(await readFile(kd, "utf8")), dienstkonto: DIENSTKONTO }));
   const r = await galerie(["neu", "AblageOrdner1234", "--titel", "Kunde X", "--projekt", "fotos-kunde-x"]);
   assert.equal(r.code, 0, r.alles);
   const z = await leseZustand(zustand);
+  assert.deepEqual(z.drive.freigaben.AblageOrdner1234, [{ emailAddress: DIENSTKONTO, role: "reader", type: "user" }], "Dienstkonto liest genau diesen Ordner, ohne Benachrichtigung");
+  assert.match(r.stdout, /Dienstkonto hat jetzt Leserecht/);
   assert.equal(z.drive.kopien, 3, "nichts kopiert");
   const d = z.dispatches.at(-1);
   assert.equal(d.inputs.ordner_id, "AblageOrdner1234");
@@ -194,6 +200,37 @@ test("neu-bauen: gleiche ID, gleicher Code, gleiches Projekt", async () => {
   assert.equal(d.inputs.projekt, "fotos-kunde-x");
   assert.ok(await pruefeCode(vorher.code, entschluesseleText(d.inputs.code_hash_enc, TEST_SCHLUESSEL, vorher.id)));
   assert.ok(r.stdout.includes(vorher.link));
+  assert.match(r.stdout, /Dienstkonto hat schon Leserecht/, "Freigabe wird geprüft, nicht doppelt gesetzt");
+  assert.equal((await leseZustand(zustand)).drive.freigaben.AblageOrdner1234.length, 1);
+});
+
+test("Konfiguration: ungültiges Dienstkonto oder ungültiger Zielordner werden abgelehnt, Zielordner nimmt die Kopie auf", async () => {
+  const kd = join(tmp, "konfig", "konfig.json");
+  const vorher = await readFile(kd, "utf8");
+  try {
+    await writeFile(kd, JSON.stringify({ ...JSON.parse(vorher), dienstkonto: "jemand@gmail.com" }));
+    const r = await galerie(["neu", "QuelleOrdner12345", "--titel", "Falsch"]);
+    assert.equal(r.code, 1);
+    assert.match(r.stderr, /Dienstkonto in der Konfiguration ist ungültig/);
+    await writeFile(kd, JSON.stringify({ ...JSON.parse(vorher), zielordner: "kurz" }));
+    const r2 = await galerie(["neu", "QuelleOrdner12345", "--titel", "Falsch"]);
+    assert.equal(r2.code, 1);
+    assert.match(r2.stderr, /Zielordner in der Konfiguration ist ungültig/);
+    await writeFile(kd, JSON.stringify({ ...JSON.parse(vorher), zielordner: "AblageOrdner1234" }));
+    // Eigene Quelle, sonst nähme das Werkzeug die frühere Kopie aus dem Register
+    const z0 = await leseZustand(zustand);
+    z0.drive.dateien.QuelleZwei1234567 = { id: "QuelleZwei1234567", name: "Zweites Event", mimeType: "application/vnd.google-apps.folder", driveId: null, eltern: null };
+    z0.drive.dateien.BildE12345678901 = { id: "BildE12345678901", name: "e.jpg", mimeType: "image/jpeg", size: "500", eltern: "QuelleZwei1234567" };
+    await schreibeZustand(zustand, z0);
+    const r3 = await galerie(["neu", "QuelleZwei1234567", "--titel", "Ins Unterverzeichnis", "--projekt", "fotos-ziel-test"]);
+    assert.equal(r3.code, 0, r3.alles);
+    const z = await leseZustand(zustand);
+    const neu = Object.values(z.drive.dateien).find((f) => f.name === "Ins Unterverzeichnis");
+    assert.equal(neu.eltern, "AblageOrdner1234", "Kopie landet im Zielordner, nicht in der Wurzel der Ablage");
+    assert.equal(z.dispatches.at(-1).inputs.ordner_id, neu.id);
+  } finally {
+    await writeFile(kd, vorher);
+  }
 });
 
 test("Fehlgeschlagener Bau: Schritt, Bericht-Fehler und Log-Auszug, ohne Geheimnisse", async () => {

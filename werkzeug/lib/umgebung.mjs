@@ -122,7 +122,12 @@ export async function ladeKonfig(e, { ablageFinden } = {}) {
   }
   if (!/^[A-Za-z0-9_-]{10,100}$/.test(konfig.ablage)) throw new WerkzeugFehler("Ablage-ID in der Konfiguration ist ungültig");
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(konfig.repo)) throw new WerkzeugFehler("Repo in der Konfiguration ist ungültig");
-  if (geaendert) await schreibeGeschuetzt(e.konfigDatei, `${JSON.stringify({ ablage: konfig.ablage, repo: konfig.repo }, null, 2)}\n`, e.konfigDir);
+  // Optional: zielordner = Ordner in der Ablage, in den Ordner von außerhalb kopiert werden
+  // (sonst die Wurzel der Ablage); dienstkonto = E-Mail des Bau-Dienstkontos, das je Event-Ordner
+  // Leserecht bekommt (die Ablage selbst ist nicht für das Dienstkonto freigegeben).
+  if (konfig.zielordner && !/^[A-Za-z0-9_-]{10,100}$/.test(konfig.zielordner)) throw new WerkzeugFehler("Zielordner in der Konfiguration ist ungültig");
+  if (konfig.dienstkonto && !/^[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/.test(konfig.dienstkonto)) throw new WerkzeugFehler("Dienstkonto in der Konfiguration ist ungültig");
+  if (geaendert) await schreibeGeschuetzt(e.konfigDatei, `${JSON.stringify({ ...gespeichert, ablage: konfig.ablage, repo: konfig.repo }, null, 2)}\n`, e.konfigDir);
   return konfig;
 }
 

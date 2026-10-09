@@ -123,6 +123,19 @@ export async function starteServer(zustandDatei, bilder) {
         const d = z.drive;
         const pfad = u.pathname.slice("/drive".length);
         if (pfad === "/drives") return json(res, 200, { drives: [{ id: ABLAGE, name: "Event-Galerie" }, { id: "0AAndere", name: "Buchhaltung" }] });
+        const rechte = /^\/files\/([^/]+)\/permissions$/.exec(pfad);
+        if (rechte) {
+          d.freigaben ??= {};
+          const liste = (d.freigaben[rechte[1]] ??= []);
+          if (req.method === "POST") {
+            const b = JSON.parse(await koerper(req));
+            if (u.searchParams.get("sendNotificationEmail") !== "false") return json(res, 400, { fehler: "Benachrichtigung" });
+            liste.push({ emailAddress: b.emailAddress, role: b.role, type: b.type });
+            await schreibeZustand(zustandDatei, z);
+            return json(res, 200, { id: `Recht${liste.length}` });
+          }
+          return json(res, 200, { permissions: liste });
+        }
         const kopie = /^\/files\/([^/]+)\/copy$/.exec(pfad);
         if (kopie && req.method === "POST") {
           const b = JSON.parse(await koerper(req));

@@ -227,7 +227,7 @@ async function befehlNeu(e, gh, pos, w) {
   } else {
     const frueher = register.galerien.find((g) => g.quelle === quelle && g.ordner);
     log("  liegt nicht in der Geteilten Ablage, wird serverseitig kopiert");
-    ordner = frueher?.ordner || (await drive.ordnerIn(konfig.ablage, titel));
+    ordner = frueher?.ordner || (await drive.ordnerIn(konfig.zielordner || konfig.ablage, titel));
     const stand = await drive.kopiereBaum(quelle, ordner);
     log(`  ${stand.kopiert} kopiert, ${stand.schonDa} schon da, ${stand.fehler} Fehler`);
     if (stand.fehler) throw new WerkzeugFehler(`${stand.fehler} Dateien nicht kopiert`, { hinweis: "Befehl einfach noch einmal ausführen, Kopiertes wird übersprungen" });
@@ -235,6 +235,7 @@ async function befehlNeu(e, gh, pos, w) {
   const zahl = await drive.zaehle(ordner);
   log(`  ${zahl.bilder} Fotos, ${(zahl.bytes / 1e9).toFixed(2)} GB`);
   if (!zahl.bilder) throw new WerkzeugFehler("Im Ordner liegen keine Fotos (JPG, PNG, HEIC)");
+  await dienstkontoFreigeben(drive, konfig, ordner);
   }
 
   const id = randomUUID();
@@ -252,6 +253,16 @@ async function befehlNeu(e, gh, pos, w) {
   ausgabeBlock({ link, code, dateien, titel });
 }
 
+/** Leserecht für das Bau-Dienstkonto auf dem Event-Ordner (ohne Eintrag in der Konfiguration nur ein Hinweis). */
+async function dienstkontoFreigeben(drive, konfig, ordner) {
+  if (!konfig.dienstkonto) {
+    log("  Hinweis: kein Dienstkonto in der Konfiguration, Ordner nicht freigegeben (Bau findet ihn nur, wenn die ganze Ablage freigegeben ist)");
+    return;
+  }
+  const stand = await drive.freigeben(ordner, konfig.dienstkonto);
+  log(stand === "neu" ? "  Dienstkonto hat jetzt Leserecht auf den Ordner" : "  Dienstkonto hat schon Leserecht auf den Ordner");
+}
+
 async function ablageFinden(drive) {
   const passend = (await drive.ablagen()).filter((d) => /galerie|foto/i.test(d.name));
   if (passend.length === 1) return passend[0].id;
@@ -263,6 +274,15 @@ async function befehlNeuBauen(e, gh, pos, w) {
   if (g.status === "geloescht") throw new WerkzeugFehler("Diese Galerie ist gelöscht");
   if (!g.code || !g.ordner || !g.id) throw new WerkzeugFehler("Im Register fehlen Code, Ordner oder ID");
   await vorbedingungen(e, { schluessel: true, gh });
+  // Freigabe nachziehen (etwa nach einem Umzug des Ordners); ohne Google-Anmeldung baut es trotzdem.
+  try {
+    const { holeToken } = await vorbedingungen(e, { github: false, google: true });
+    const drive = erzeugeDriveWerkzeug({ api: e.driveApi, holeToken, protokoll: log });
+    await dienstkontoFreigeben(drive, await leseKonfigRoh(e), g.ordner);
+  } catch (f) {
+    if (f instanceof WerkzeugFehler && /Freigabe/.test(f.message)) throw f;
+    log("Hinweis: Google-Anmeldung fehlt, Freigabe des Ordners nicht geprüft");
+  }
   const titel = (w.titel || g.titel).trim();
   const untertitel = w.untertitel !== undefined ? w.untertitel.trim() || undefined : g.untertitel;
   const eintrag = await eintragSetzen(e, { projekt: g.projekt, titel, untertitel });
@@ -293,6 +313,8 @@ async function befehlPruefen(e, gh) {
   if (!ablage) throw new WerkzeugFehler("Die konfigurierte Geteilte Ablage ist für dieses Konto nicht sichtbar", { hinweis: e.konfigDatei });
   log("gh angemeldet, gcloud mit Drive-Recht, Galerie-Schlüssel im Schlüsselbund");
   log(`Geteilte Ablage: ${ablage.name}`);
+  if (konfig.zielordner) log(`Zielordner für Kopien: ${(await drive.info(konfig.zielordner)).name}`);
+  log(konfig.dienstkonto ? `Dienstkonto (Leserecht je Event-Ordner): ${konfig.dienstkonto}` : "Kein Dienstkonto eingetragen, Event-Ordner werden nicht freigegeben");
   log(`Repo: ${konfig.repo}`);
   log(`Konfiguration: ${e.konfigDatei}`);
 }

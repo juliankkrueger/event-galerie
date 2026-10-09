@@ -19,7 +19,7 @@ galerie neu "<link>" --titel "AMBITION Circle 2026" --marke ambition
 
 Was das Werkzeug tut, ohne Klick:
 1. Prüft `gh`, `gcloud` (mit Drive-Recht) und den Galerie-Schlüssel im Schlüsselbund. Fehlt etwas, sagt es, mit welchem Befehl man es behebt.
-2. Liegt der Ordner nicht in der Geteilten Ablage der Event-Galerie, kopiert es ihn dorthin (in Drive, ohne Download; ein zweiter Aufruf kopiert nichts doppelt).
+2. Liegt der Ordner nicht in der Geteilten Ablage „01 | Krüger OS - Intern“, kopiert es ihn dorthin nach „Events“ (in Drive, ohne Download; ein zweiter Aufruf kopiert nichts doppelt). Am besten gleich dort ablegen: Events › <Event> › <Jahr> › FOTOS. Dann gibt es dem Dienstkonto Leserecht auf genau diesen Ordner.
 3. Erzeugt Galerie-ID, Projektname und Code, startet den Bau auf GitHub und zeigt den Fortschritt.
 4. Liest den verschlüsselten Bericht: Anzahl Fotos, Größe, übersprungene Dateien, **Fotos mit Standortdaten** (die Vorschauen sind bereinigt, die Originale nicht).
 5. Prüft die fertige Galerie live: Startseite, falscher Code abgewiesen, richtiger Code angenommen, Anzahl stimmt, drei Originale byte-gleich.
